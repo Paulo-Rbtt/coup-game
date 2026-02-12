@@ -107,6 +107,21 @@ class LobbyController extends Controller
         return response()->json($data);
     }
 
+    /**
+     * POST /api/games/{game}/rematch — Reset game to lobby for rematch.
+     */
+    public function rematch(Request $request, Game $game): JsonResponse
+    {
+        $this->authenticatePlayer($request, $game);
+
+        try {
+            $this->gameService->rematchGame($game);
+            return response()->json(['success' => true]);
+        } catch (\RuntimeException $e) {
+            return response()->json(['error' => $e->getMessage()], 422);
+        }
+    }
+
     private function authenticatePlayer(Request $request, Game $game): Player
     {
         $token = $request->header('X-Player-Token');

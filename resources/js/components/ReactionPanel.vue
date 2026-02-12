@@ -1,51 +1,67 @@
 <template>
   <div class="bg-gray-800/60 backdrop-blur rounded-xl p-4 border border-amber-400/30">
     <h3 class="text-sm font-bold text-amber-400 mb-3">
-      {{ phaseTitle }}
+      {{ hasPassed ? 'Aguardando...' : phaseTitle }}
     </h3>
 
-    <p class="text-xs text-gray-400 mb-3">{{ phaseDescription }}</p>
+    <!-- Waiting state after passing -->
+    <div v-if="hasPassed" class="text-center py-3">
+      <div class="flex items-center justify-center gap-2 text-gray-400 text-sm mb-2">
+        <div class="flex gap-1">
+          <span class="w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce" style="animation-delay: 0ms"></span>
+          <span class="w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce" style="animation-delay: 150ms"></span>
+          <span class="w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce" style="animation-delay: 300ms"></span>
+        </div>
+        Aguardando outros jogadores...
+      </div>
+      <p class="text-xs text-gray-500">Você já passou. Esperando decisão dos demais.</p>
+    </div>
 
-    <div class="flex flex-wrap gap-2">
-      <!-- Challenge action -->
-      <template v-if="phase === 'awaiting_challenge_action'">
-        <button @click="emit('challenge')"
-                class="flex-1 py-2 px-4 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm font-bold transition">
-          🔍 Contestar
-        </button>
-        <button @click="emit('pass')"
-                class="flex-1 py-2 px-4 rounded-lg bg-gray-600 hover:bg-gray-500 text-white text-sm transition">
-          Passar
-        </button>
-      </template>
+    <!-- Normal reaction buttons -->
+    <template v-else>
+      <p class="text-xs text-gray-400 mb-3">{{ phaseDescription }}</p>
 
-      <!-- Block action -->
-      <template v-if="phase === 'awaiting_block'">
-        <template v-for="char in blockableCharacters" :key="char.value">
-          <button @click="emit('block', char.value)"
-                  class="flex-1 py-2 px-4 rounded-lg text-white text-sm font-bold transition"
-                  :style="{ backgroundColor: char.btnColor }">
-            🛡️ Bloquear ({{ char.name }})
+      <div class="flex flex-wrap gap-2">
+        <!-- Challenge action -->
+        <template v-if="phase === 'awaiting_challenge_action'">
+          <button @click="emit('challenge')"
+                  class="flex-1 py-2 px-4 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm font-bold transition">
+            🔍 Contestar
+          </button>
+          <button @click="emit('pass')"
+                  class="flex-1 py-2 px-4 rounded-lg bg-gray-600 hover:bg-gray-500 text-white text-sm transition">
+            Passar
           </button>
         </template>
-        <button @click="emit('pass')"
-                class="flex-1 py-2 px-4 rounded-lg bg-gray-600 hover:bg-gray-500 text-white text-sm transition">
-          Passar
-        </button>
-      </template>
 
-      <!-- Challenge block -->
-      <template v-if="phase === 'awaiting_challenge_block'">
-        <button @click="emit('challenge-block')"
-                class="flex-1 py-2 px-4 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm font-bold transition">
-          🔍 Contestar Bloqueio
-        </button>
-        <button @click="emit('pass')"
-                class="flex-1 py-2 px-4 rounded-lg bg-gray-600 hover:bg-gray-500 text-white text-sm transition">
-          Passar
-        </button>
-      </template>
-    </div>
+        <!-- Block action -->
+        <template v-if="phase === 'awaiting_block'">
+          <template v-for="char in blockableCharacters" :key="char.value">
+            <button @click="emit('block', char.value)"
+                    class="flex-1 py-2 px-4 rounded-lg text-white text-sm font-bold transition"
+                    :style="{ backgroundColor: char.btnColor }">
+              🛡️ Bloquear ({{ char.name }})
+            </button>
+          </template>
+          <button @click="emit('pass')"
+                  class="flex-1 py-2 px-4 rounded-lg bg-gray-600 hover:bg-gray-500 text-white text-sm transition">
+            Passar
+          </button>
+        </template>
+
+        <!-- Challenge block -->
+        <template v-if="phase === 'awaiting_challenge_block'">
+          <button @click="emit('challenge-block')"
+                  class="flex-1 py-2 px-4 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm font-bold transition">
+            🔍 Contestar Bloqueio
+          </button>
+          <button @click="emit('pass')"
+                  class="flex-1 py-2 px-4 rounded-lg bg-gray-600 hover:bg-gray-500 text-white text-sm transition">
+            Passar
+          </button>
+        </template>
+      </div>
+    </template>
   </div>
 </template>
 
@@ -57,6 +73,7 @@ const props = defineProps({
   phase: String,
   turnState: Object,
   myId: Number,
+  hasPassed: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(['pass', 'challenge', 'block', 'challenge-block']);

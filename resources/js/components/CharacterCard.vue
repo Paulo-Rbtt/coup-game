@@ -4,10 +4,7 @@
          dead ? 'opacity-40 grayscale cursor-default' : '',
          selectable ? 'hover:ring-2 hover:ring-amber-400 cursor-pointer' : '',
        ]"
-       :style="{
-         backgroundColor: charData.color + (dead ? '22' : '33'),
-         borderColor: charData.color + (dead ? '44' : '88'),
-       }"
+       :style="cardStyle"
        @click="selectable && emit('select', character)">
 
     <!-- Card face -->
@@ -20,7 +17,7 @@
 
     <!-- Card back -->
     <div v-else class="text-center h-16 flex items-center justify-center">
-      <span class="text-2xl opacity-40">?</span>
+      <span class="text-2xl opacity-40">🃏</span>
     </div>
   </div>
 </template>
@@ -40,4 +37,19 @@ const props = defineProps({
 const emit = defineEmits(['select']);
 
 const charData = computed(() => CHARACTERS[props.character] || { name: '?', color: '#666' });
+
+const cardStyle = computed(() => {
+  if (!props.faceUp) {
+    // Card hidden: use neutral gray colors
+    return {
+      backgroundColor: '#374151',
+      borderColor: '#4b5563',
+    };
+  }
+  // Card revealed: use character colors
+  return {
+    backgroundColor: charData.value.color + (props.dead ? '22' : '33'),
+    borderColor: charData.value.color + (props.dead ? '44' : '88'),
+  };
+});
 </script>

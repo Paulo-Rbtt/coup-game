@@ -212,6 +212,15 @@ export function useGame() {
         leaveGame();
     }
 
+    async function rematchGame() {
+        state.error = null;
+        try {
+            await api.post(`/games/${state.game.id}/rematch`);
+        } catch (e) {
+            state.error = e.response?.data?.error || 'Erro ao solicitar revanche.';
+        }
+    }
+
     // ── Computed ─────────────────────
     const isMyTurn = computed(() => {
         return state.game?.current_player_id === state.player?.id;
@@ -240,6 +249,11 @@ export function useGame() {
         return state.player?.coins >= 10;
     });
 
+    const hasPassed = computed(() => {
+        const passed = state.game?.turn_state?.passed_players || [];
+        return passed.includes(state.player?.id);
+    });
+
     return {
         state,
         createGame,
@@ -256,6 +270,7 @@ export function useGame() {
         exchangeCards,
         leaveGame,
         abandonGame,
+        rematchGame,
         isMyTurn,
         myInfluences,
         isHost,
@@ -263,5 +278,6 @@ export function useGame() {
         otherPlayers,
         aliveOpponents,
         mustCoup,
+        hasPassed,
     };
 }

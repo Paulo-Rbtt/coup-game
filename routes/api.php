@@ -9,6 +9,7 @@ Route::post('/games', [LobbyController::class, 'create']);
 Route::post('/games/join', [LobbyController::class, 'join']);
 Route::post('/games/reconnect', [LobbyController::class, 'reconnect']);
 Route::post('/games/{game}/start', [LobbyController::class, 'start']);
+Route::post('/games/{game}/rematch', [LobbyController::class, 'rematch']);
 Route::get('/games/{game}/state', [LobbyController::class, 'state']);
 
 // ── Game Actions ─────────────────────────────────────

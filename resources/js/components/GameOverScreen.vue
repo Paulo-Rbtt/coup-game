@@ -28,11 +28,18 @@
         </div>
       </div>
 
-      <button @click="leaveGame"
-              class="py-3 px-8 rounded-xl bg-amber-400 text-gray-900 font-bold text-lg
-                     hover:bg-amber-300 transition">
-        Nova Partida
-      </button>
+      <div class="flex flex-col sm:flex-row gap-3 justify-center">
+        <button @click="rematchGame"
+                class="py-3 px-8 rounded-xl bg-amber-400 text-gray-900 font-bold text-lg
+                       hover:bg-amber-300 transition">
+          🔄 Revanche
+        </button>
+        <button @click="leaveGame"
+                class="py-3 px-8 rounded-xl bg-gray-700 text-gray-300 font-bold text-lg
+                       hover:bg-gray-600 border border-gray-600 transition">
+          Sair
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -41,7 +48,7 @@
 import { computed } from 'vue';
 import { useGame } from '../composables/useGame';
 
-const { state, leaveGame } = useGame();
+const { state, leaveGame, rematchGame } = useGame();
 
 const winner = computed(() => {
   if (!state.game) return null;

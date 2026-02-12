@@ -1172,6 +1172,43 @@ class GameService
     }
 
     // ══════════════════════════════════════════════════════════════
+    // REMATCH
+    // ══════════════════════════════════════════════════════════════
+
+    public function rematchGame(Game $game): void
+    {
+        DB::transaction(function () use ($game) {
+            $game = Game::lockForUpdate()->find($game->id);
+
+            if ($game->phase !== GamePhase::GAME_OVER) {
+                throw new \RuntimeException('A partida ainda não terminou.');
+            }
+
+            // Reset all players
+            foreach ($game->players as $player) {
+                $player->coins = 2;
+                $player->influences = [];
+                $player->revealed = [];
+                $player->is_alive = true;
+                $player->save();
+            }
+
+            // Reset game to lobby
+            $game->phase = GamePhase::LOBBY;
+            $game->deck = [];
+            $game->treasury = 0;
+            $game->current_player_index = 0;
+            $game->turn_number = 0;
+            $game->turn_state = null;
+            $game->event_log = [];
+            $game->winner_id = null;
+            $game->save();
+
+            $this->broadcastAll($game->fresh('players'));
+        });
+    }
+
+    // ══════════════════════════════════════════════════════════════
     // BROADCASTING
     // ══════════════════════════════════════════════════════════════
 

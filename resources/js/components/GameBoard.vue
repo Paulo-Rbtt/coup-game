@@ -51,9 +51,19 @@
         <div class="bg-gray-800/60 backdrop-blur rounded-xl p-4 border border-gray-700">
           <div class="flex items-center justify-between mb-3">
             <h3 class="font-bold text-amber-400">{{ state.player?.name }}</h3>
-            <div class="flex items-center gap-1">
-              <CoinIcon class="w-5 h-5 text-amber-400" />
-              <span class="text-lg font-bold text-amber-400">{{ state.player?.coins }}</span>
+            <div class="flex items-center gap-2">
+              <div class="flex items-center gap-1">
+                <CoinIcon class="w-5 h-5 text-amber-400" />
+                <span class="text-lg font-bold text-amber-400">{{ state.player?.coins }}</span>
+              </div>
+              <!-- Peek cards button -->
+              <button @click="cardsVisible = !cardsVisible"
+                      class="px-2 py-1 rounded-lg text-xs transition-all duration-200 border"
+                      :class="cardsVisible
+                        ? 'bg-amber-400/20 border-amber-400/50 text-amber-300'
+                        : 'bg-gray-700/60 border-gray-600 text-gray-400 hover:text-amber-300 hover:border-amber-400/50'">
+                {{ cardsVisible ? '🙈 Esconder' : '👁 Ver cartas' }}
+              </button>
             </div>
           </div>
 
@@ -61,7 +71,7 @@
           <div class="flex gap-2">
             <CharacterCard v-for="(card, index) in myInfluences" :key="'inf-'+index"
                            :character="card"
-                           :faceUp="true"
+                           :faceUp="cardsVisible || forceReveal"
                            :selectable="isChoosingInfluenceLoss"
                            @select="handleLoseInfluence(card)"
                            class="flex-1" />
@@ -90,6 +100,7 @@
                        :phase="state.game.phase"
                        :turnState="state.game.turn_state"
                        :myId="state.player?.id"
+                       :hasPassed="hasPassed"
                        @pass="pass"
                        @challenge="challengeAction"
                        @block="handleBlock"
@@ -111,7 +122,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useGame } from '../composables/useGame';
 import PlayerCard from './PlayerCard.vue';
 import CharacterCard from './CharacterCard.vue';
@@ -130,6 +141,7 @@ const {
   otherPlayers,
   aliveOpponents,
   mustCoup,
+  hasPassed,
   declareAction,
   pass,
   challengeAction,
@@ -139,6 +151,13 @@ const {
   exchangeCards,
   abandonGame,
 } = useGame();
+
+const cardsVisible = ref(false);
+
+// Force reveal when the player needs to interact with their cards
+const forceReveal = computed(() => {
+  return isChoosingInfluenceLoss.value || isExchanging.value;
+});
 
 function confirmLeave() {
   if (confirm('Tem certeza que deseja sair? Você será eliminado da partida.')) {
@@ -161,21 +180,21 @@ const showReactionPanel = computed(() => {
   const phase = state.game?.phase;
   const ts = state.game?.turn_state;
   if (!ts) return false;
+  if (!state.player?.is_alive) return false;
 
-  // Can I react?
+  // Can I react? (show panel even if already passed — ReactionPanel will show waiting state)
   if (phase === 'awaiting_challenge_action') {
-    return state.player?.id !== ts.actor_id && state.player?.is_alive;
+    return state.player?.id !== ts.actor_id;
   }
   if (phase === 'awaiting_block') {
-    // Foreign aid → anyone but actor; others → only target
     const action = ts.action;
     if (action === 'foreign_aid') {
-      return state.player?.id !== ts.actor_id && state.player?.is_alive;
+      return state.player?.id !== ts.actor_id;
     }
-    return state.player?.id === ts.target_id && state.player?.is_alive;
+    return state.player?.id === ts.target_id;
   }
   if (phase === 'awaiting_challenge_block') {
-    return state.player?.id !== ts.blocker_id && state.player?.is_alive;
+    return state.player?.id !== ts.blocker_id;
   }
   return false;
 });
