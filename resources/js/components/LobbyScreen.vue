@@ -7,6 +7,13 @@
         <p class="text-gray-400 mt-2 text-sm">Jogo de Blefe e Política</p>
       </div>
 
+      <!-- Host network banner -->
+      <div v-if="isHostMode && state.hostInfo?.primary_ip" class="mb-4 bg-emerald-900/30 border border-emerald-700/50 rounded-xl px-4 py-3 text-center">
+        <p class="text-xs text-emerald-400 mb-1">Seu IP para outros jogadores:</p>
+        <p class="text-xl font-mono font-bold text-emerald-300 tracking-wider">{{ state.hostInfo.primary_ip }}</p>
+        <p class="text-xs text-gray-500 mt-1">Porta: {{ state.hostInfo.server_port || 8000 }}</p>
+      </div>
+
       <!-- If already in a lobby, show room info -->
       <div v-if="state.game && state.game.phase === 'lobby'" class="bg-gray-800/60 backdrop-blur rounded-2xl p-6 shadow-xl border border-gray-700">
         <div class="text-center mb-6">
@@ -26,7 +33,7 @@
             </div>
             <span class="font-medium">{{ player.name }}</span>
             <span v-if="player.is_host" class="text-xs text-amber-400 ml-auto">Anfitrião</span>
-            <span v-if="player.id === state.player?.id" class="text-xs text-green-400 ml-auto">Você</span>
+            <span v-if="player.id === state.player?.id && !player.is_host" class="text-xs text-green-400 ml-auto">Você</span>
           </div>
         </div>
 
@@ -101,6 +108,12 @@
             Entrar na Sala
           </button>
         </div>
+
+        <!-- Disconnect button -->
+        <button @click="disconnect"
+                class="w-full py-2 text-sm text-gray-500 hover:text-red-400 transition">
+          ← Voltar à tela de conexão
+        </button>
       </div>
     </div>
   </div>
@@ -110,7 +123,7 @@
 import { ref } from 'vue';
 import { useGame } from '../composables/useGame';
 
-const { state, createGame, joinGame, startGame, leaveGame, isHost } = useGame();
+const { state, createGame, joinGame, startGame, leaveGame, disconnect, isHost, isHostMode } = useGame();
 
 const playerName = ref('');
 const roomCode = ref('');

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\GameActionController;
 use App\Http\Controllers\LobbyController;
+use App\Http\Controllers\NetworkController;
 use Illuminate\Support\Facades\Route;
 
 // ── Lobby ────────────────────────────────────────────
@@ -20,3 +21,6 @@ Route::post('/games/{game}/challenge-block', [GameActionController::class, 'chal
 Route::post('/games/{game}/lose-influence', [GameActionController::class, 'loseInfluence']);
 Route::post('/games/{game}/exchange', [GameActionController::class, 'exchange']);
 Route::post('/games/{game}/leave', [GameActionController::class, 'leave']);
+
+// ── Network ───────────────────────────────────────────
+Route::get('/network/info', [NetworkController::class, 'info']);

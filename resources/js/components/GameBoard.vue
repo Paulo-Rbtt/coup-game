@@ -5,13 +5,18 @@
       <div class="flex items-center gap-3">
         <h1 class="text-xl font-black text-amber-400">COUP</h1>
         <span class="text-xs text-gray-500 font-mono">{{ state.game.code }}</span>
+        <!-- Connection indicator -->
+        <span class="flex items-center gap-1 text-xs" :class="isHostMode ? 'text-emerald-400' : 'text-sky-400'">
+          <span class="w-1.5 h-1.5 rounded-full" :class="isHostMode ? 'bg-emerald-400' : 'bg-sky-400'"></span>
+          {{ isHostMode ? 'Host' : 'LAN' }}
+        </span>
       </div>
       <div class="flex items-center gap-4">
-        <span class="text-sm text-gray-400">Turno {{ state.game.turn_number }}</span>
+        <span class="text-sm text-gray-400 hidden sm:inline">Turno {{ state.game.turn_number }}</span>
         <div class="flex items-center gap-1 text-amber-400">
           <CoinIcon class="w-4 h-4" />
           <span class="text-sm font-bold">{{ state.game.treasury }}</span>
-          <span class="text-xs text-gray-500">tesouro</span>
+          <span class="text-xs text-gray-500 hidden sm:inline">tesouro</span>
         </div>
         <div class="flex items-center gap-1 text-gray-400">
           <span class="text-xs">🃏 {{ state.game.deck_count }}</span>
@@ -130,6 +135,7 @@ const {
   otherPlayers,
   aliveOpponents,
   mustCoup,
+  isHostMode,
   declareAction,
   pass,
   challengeAction,
