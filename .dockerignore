@@ -1,0 +1,47 @@
+# ─── Coup — Docker Ignore ────────────────────────────────
+node_modules
+vendor
+
+.git
+.gitattributes
+.gitignore
+
+# IDE / Editor
+.idea
+.vscode
+*.swp
+*.swo
+
+# Environment
+.env
+.env.backup
+.env.local
+
+# Build artifacts
+public/build
+public/hot
+
+# Storage (logs, cache — created at runtime)
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/framework/testing/*
+
+# Tests
+tests
+phpunit.xml
+.phpunit.result.cache
+
+# Docker files themselves (not needed inside image)
+docker-compose.yml
+docker-compose.override.yml
+
+# NativePHP (desktop/mobile build — not for Docker)
+dist
+
+# Docs
+README.md
+CHANGELOG.md
+LICENSE
+*.md
