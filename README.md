@@ -88,7 +88,98 @@ docker compose down -v
 
 ---
 
-## 🔧 Build Args (Customização)
+## � HTTPS / SSL
+
+### Quick Start — Ativar HTTPS
+
+```bash
+# Copiar template HTTPS
+cp .env.docker.https .env.docker
+
+# Rebuild com HTTPS
+docker compose up -d --build
+
+# Acessar (ignore aviso de certificado self-signed)
+# https://localhost
+```
+
+### Certificado Self-Signed (Desenvolvimento)
+
+O Docker gera automaticamente um certificado self-signed. Para customizar:
+
+1. Edite o `.env.docker`:
+```env
+NGINX_CONFIG=./docker/nginx/default-https.conf
+SSL_DOMAIN=localhost
+APP_URL=https://localhost
+VITE_REVERB_PORT=443
+VITE_REVERB_SCHEME=https
+```
+
+2. Rebuild e reinicie:
+```bash
+docker compose up -d --build
+```
+
+3. Acesse `https://localhost` (ignore o aviso de certificado no navegador)
+
+### Let's Encrypt (Produção)
+
+Para certificado válido com Let's Encrypt:
+
+1. **Pré-requisitos:**
+   - Domínio válido apontando para seu servidor
+   - Portas 80 e 443 abertas
+
+2. **Primeira execução (gerar certificado):**
+```bash
+# Iniciar com HTTP para validação do domínio
+docker compose up -d
+
+# Gerar certificado Let's Encrypt
+docker run --rm \
+  -v $(pwd)/docker/certbot/conf:/etc/letsencrypt \
+  -v $(pwd)/docker/certbot/www:/var/www/certbot \
+  certbot/certbot certonly --webroot \
+  -w /var/www/certbot \
+  -d seu-dominio.com \
+  --email seu@email.com \
+  --agree-tos \
+  --no-eff-email
+```
+
+3. **Atualizar nginx para usar certificado real:**
+
+Crie `docker/nginx/default-letsencrypt.conf`:
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name seu-dominio.com;
+    
+    ssl_certificate /etc/letsencrypt/live/seu-dominio.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/seu-dominio.com/privkey.pem;
+    
+    # ... resto da config igual ao default-https.conf
+}
+```
+
+4. **Atualizar docker-compose.yml:**
+```yaml
+nginx:
+  volumes:
+    - ./docker/certbot/conf:/etc/letsencrypt:ro
+    - ./docker/certbot/www:/var/www/certbot:ro
+```
+
+5. **Renovação automática (cron):**
+```bash
+# Adicionar ao crontab do servidor
+0 3 * * * docker run --rm -v $(pwd)/docker/certbot/conf:/etc/letsencrypt -v $(pwd)/docker/certbot/www:/var/www/certbot certbot/certbot renew && docker compose restart nginx
+```
+
+---
+
+## �🔧 Build Args (Customização)
 
 Ao fazer build para um domínio/IP diferente (ex: AWS), passe os args do Vite:
 
