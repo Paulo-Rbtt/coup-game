@@ -5,7 +5,13 @@
       <div class="text-center mb-8">
         <h1 class="text-6xl font-black tracking-wider text-amber-400 drop-shadow-lg">COUP</h1>
         <p class="text-gray-400 mt-2 text-sm">Jogo de Blefe e Política</p>
+        <button @click="showHelp = true"
+                class="mt-3 px-4 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-amber-400 text-sm border border-gray-700 transition">
+          ❓ Como Jogar
+        </button>
       </div>
+
+      <HelpRules :visible="showHelp" @close="showHelp = false" />
 
       <!-- If already in a lobby, show room info -->
       <div v-if="state.game && state.game.phase === 'lobby'" class="bg-gray-800/60 backdrop-blur rounded-2xl p-6 shadow-xl border border-gray-700">
@@ -109,11 +115,13 @@
 <script setup>
 import { ref } from 'vue';
 import { useGame } from '../composables/useGame';
+import HelpRules from './HelpRules.vue';
 
 const { state, createGame, joinGame, startGame, leaveGame, isHost } = useGame();
 
 const playerName = ref('');
 const roomCode = ref('');
+const showHelp = ref(false);
 
 async function handleCreate() {
   if (!playerName.value.trim()) return;

@@ -203,6 +203,7 @@ class GameService
                 'exchange_options' => null,
                 'resolved' => false,
             ];
+            $game->save();
 
             // Determine next phase
             if ($action === ActionType::INCOME) {
@@ -986,7 +987,15 @@ class GameService
             return;
         }
 
-        $game->advanceTurn();
+        // Find actor's seat for correct seat-based advancement
+        $ts = $game->turn_state;
+        $actorSeat = null;
+        if ($ts && isset($ts['actor_id'])) {
+            $actor = Player::find($ts['actor_id']);
+            $actorSeat = $actor?->seat;
+        }
+
+        $game->advanceTurn($actorSeat);
 
         $game->appendLog([
             'type' => 'turn_start',
@@ -1146,16 +1155,8 @@ class GameService
             }
 
             if ($needsEndTurn) {
-                // Fix current_player_index since a player was removed from alive list
-                $alive = $game->alivePlayers()->get();
-                $currentIdx = $game->current_player_index;
-                if ($currentIdx >= $alive->count()) {
-                    $game->current_player_index = 0;
-                }
-                $game->turn_number++;
-                $game->phase = GamePhase::ACTION_SELECTION;
-                $game->turn_state = null;
-                $game->save();
+                // Use seat-based advancement from the abandoning player's seat
+                $game->advanceTurn($player->seat);
 
                 $game->appendLog([
                     'type' => 'turn_start',

@@ -90,13 +90,34 @@ class Game extends Model
         return $alive->values()->get($this->current_player_index % $alive->count());
     }
 
-    public function advanceTurn(): void
+    /**
+     * Advance to the next alive player by seat order.
+     * If $afterSeat is given, advance from that seat; otherwise from current player's seat.
+     */
+    public function advanceTurn(?int $afterSeat = null): void
     {
         $alive = $this->alivePlayers()->get();
         if ($alive->count() <= 1) {
             return;
         }
-        $this->current_player_index = ($this->current_player_index + 1) % $alive->count();
+
+        if ($afterSeat === null) {
+            $current = $alive->values()->get($this->current_player_index % $alive->count());
+            $afterSeat = $current ? $current->seat : 0;
+        }
+
+        $totalSeats = $this->players()->count();
+
+        for ($i = 1; $i <= $totalSeats; $i++) {
+            $nextSeat = ($afterSeat + $i) % $totalSeats;
+            $nextPlayer = $alive->firstWhere('seat', $nextSeat);
+            if ($nextPlayer) {
+                $idx = $alive->values()->search(fn($p) => $p->id === $nextPlayer->id);
+                $this->current_player_index = $idx !== false ? $idx : 0;
+                break;
+            }
+        }
+
         $this->turn_number++;
         $this->phase = GamePhase::ACTION_SELECTION;
         $this->turn_state = null;
@@ -109,6 +130,12 @@ class Game extends Model
         $entry['timestamp'] = now()->toISOString();
         $entry['turn'] = $this->turn_number;
         $log[] = $entry;
+
+        // Keep only last 20 entries to prevent payload too large
+        if (count($log) > 20) {
+            $log = array_slice($log, -20);
+        }
+
         $this->event_log = $log;
         $this->save();
     }

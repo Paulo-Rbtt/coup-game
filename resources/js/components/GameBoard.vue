@@ -20,8 +20,14 @@
                 class="ml-2 px-3 py-1 text-xs rounded-lg bg-red-900/60 hover:bg-red-800 text-red-300 border border-red-700 transition-colors cursor-pointer">
           Sair
         </button>
+        <button @click="showHelp = true"
+                class="px-3 py-1 text-xs rounded-lg bg-gray-700/60 hover:bg-gray-600 text-gray-400 hover:text-amber-400 border border-gray-600 transition-colors cursor-pointer">
+          ❓
+        </button>
       </div>
     </header>
+
+    <HelpRules :visible="showHelp" @close="showHelp = false" />
 
     <!-- Main content -->
     <div class="flex-1 flex flex-col lg:flex-row gap-4 p-4">
@@ -133,6 +139,7 @@ import ExchangePanel from './ExchangePanel.vue';
 import PhaseIndicator from './PhaseIndicator.vue';
 import EventLog from './EventLog.vue';
 import CoinIcon from './icons/CoinIcon.vue';
+import HelpRules from './HelpRules.vue';
 
 const {
   state,
@@ -153,6 +160,7 @@ const {
 } = useGame();
 
 const cardsVisible = ref(false);
+const showHelp = ref(false);
 
 // Force reveal when the player needs to interact with their cards
 const forceReveal = computed(() => {
