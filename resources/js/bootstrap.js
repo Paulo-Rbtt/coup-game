@@ -8,12 +8,21 @@ import Pusher from 'pusher-js';
 
 window.Pusher = Pusher;
 
+// Dynamically resolve WebSocket host/port from the current browser URL.
+// This means NO hardcoded hostname — works on localhost, LAN, EC2, any domain
+// without rebuilding the image.
+const wsHost   = window.location.hostname;
+const isTLS    = window.location.protocol === 'https:';
+const wsPort   = window.location.port
+    ? parseInt(window.location.port)
+    : (isTLS ? 443 : 80);
+
 window.Echo = new Echo({
     broadcaster: 'reverb',
     key: import.meta.env.VITE_REVERB_APP_KEY,
-    wsHost: import.meta.env.VITE_REVERB_HOST,
-    wsPort: import.meta.env.VITE_REVERB_PORT ?? 8080,
-    wssPort: import.meta.env.VITE_REVERB_PORT ?? 443,
-    forceTLS: (import.meta.env.VITE_REVERB_SCHEME ?? 'https') === 'https',
-    enabledTransports: ['ws', 'wss'],
+    wsHost,
+    wsPort,
+    wssPort: wsPort,
+    forceTLS: isTLS,
+    enabledTransports: isTLS ? ['wss'] : ['ws'],
 });
