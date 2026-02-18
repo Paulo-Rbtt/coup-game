@@ -96,14 +96,28 @@ fi
 
 # ── 6. WebSocket path via Nginx ──────────────────────────
 sep "WebSocket path via Nginx"
+
+# Read the Reverb app key so we hit a real endpoint (not /app/test with a fake key)
+REVERB_KEY=$(grep "^REVERB_APP_KEY=" .env.docker 2>/dev/null | sed 's/REVERB_APP_KEY=//' | tr -d '"' || echo "test")
+
+# Send a proper WebSocket upgrade handshake; Reverb replies 101 on success
 WS_PATH_CODE=$(curl -sk -o /dev/null -w "%{http_code}" --connect-timeout 5 \
-  "$SCHEME://$HOST/app/test" 2>/dev/null || echo "000")
-if [ "$WS_PATH_CODE" = "200" ] || [ "$WS_PATH_CODE" = "426" ] || [ "$WS_PATH_CODE" = "400" ]; then
-  ok "Nginx /app/ route reachable (HTTP $WS_PATH_CODE — expected for WS upgrade)"
+  -H "Connection: Upgrade" \
+  -H "Upgrade: websocket" \
+  -H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" \
+  -H "Sec-WebSocket-Version: 13" \
+  "$SCHEME://$HOST/app/$REVERB_KEY" 2>/dev/null || echo "000")
+
+if [ "$WS_PATH_CODE" = "101" ]; then
+  ok "WebSocket upgrade succeeded (101 Switching Protocols)"
+elif [ "$WS_PATH_CODE" = "400" ] || [ "$WS_PATH_CODE" = "426" ]; then
+  # Proxy is working but upgrade was refused (e.g. key mismatch) — not a routing problem
+  ok "Nginx /app/ proxy reachable (HTTP $WS_PATH_CODE — Reverb refused non-WS or key mismatch)"
 elif [ "$WS_PATH_CODE" = "000" ]; then
   fail "Could not reach $SCHEME://$HOST/app/ — nginx not responding"
 else
-  fail "Unexpected response on /app/ path: HTTP $WS_PATH_CODE"
+  fail "Unexpected response on /app/ path: HTTP $WS_PATH_CODE (expected 101)"
+  info "Run: docker compose logs nginx --tail=20 && docker compose logs app --tail=20"
 fi
 
 # ── 7. Supervisor ────────────────────────────────────────
