@@ -13,17 +13,12 @@ COPY resources/ resources/
 COPY public/ public/
 COPY .env.docker .env
 
-# Vite env vars baked at build time (override with --build-arg)
+# Only the app key is baked — wsHost/port/TLS are resolved
+# dynamically at runtime via window.location in bootstrap.js
 ARG VITE_REVERB_APP_KEY=hdg3y2tj7k10krzct9ec
-ARG VITE_REVERB_HOST=localhost
-ARG VITE_REVERB_PORT=80
-ARG VITE_REVERB_SCHEME=http
 ARG VITE_APP_NAME=Coup
 
 ENV VITE_REVERB_APP_KEY=$VITE_REVERB_APP_KEY \
-    VITE_REVERB_HOST=$VITE_REVERB_HOST \
-    VITE_REVERB_PORT=$VITE_REVERB_PORT \
-    VITE_REVERB_SCHEME=$VITE_REVERB_SCHEME \
     VITE_APP_NAME=$VITE_APP_NAME
 
 RUN npm run build
@@ -74,6 +69,9 @@ COPY . .
 
 # Copy built frontend assets from stage 1
 COPY --from=frontend /app/public/build public/build
+# Also stash a copy outside the volume mount-point so the entrypoint
+# can sync fresh assets into the named volume on every container start
+COPY --from=frontend /app/public/build /tmp/public-build
 
 # Finalize composer
 RUN composer dump-autoload --optimize \

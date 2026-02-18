@@ -58,9 +58,6 @@ REVERB_PORT="${REVERB_PORT:-8080}"
 REVERB_SCHEME="${REVERB_SCHEME:-http}"
 
 VITE_REVERB_APP_KEY="${VITE_REVERB_APP_KEY}"
-VITE_REVERB_HOST="${VITE_REVERB_HOST}"
-VITE_REVERB_PORT="${VITE_REVERB_PORT}"
-VITE_REVERB_SCHEME="${VITE_REVERB_SCHEME}"
 VITE_APP_NAME="${VITE_APP_NAME}"
 EOF
 
@@ -89,9 +86,13 @@ php artisan view:cache
 chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
-# ── Copy public assets to shared volume ──────────────────
-echo "📂  Syncing public assets to shared volume..."
-cp -r /var/www/html/public/* /var/www/html/public/ 2>/dev/null || true
+# ── Sync built assets into the named volume ─────────────
+# The Docker named volume persists across rebuilds, so the image's
+# /var/www/html/public/build is hidden.  We stashed a copy in
+# /tmp/public-build during the Docker build; now we sync it in.
+echo "📂  Syncing public assets into shared volume..."
+mkdir -p /var/www/html/public/build
+cp -rf /tmp/public-build/* /var/www/html/public/build/ 2>/dev/null || true
 
 echo "🎮  Starting Coup server..."
 exec "$@"
