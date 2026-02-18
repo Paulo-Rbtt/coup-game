@@ -24,5 +24,6 @@ window.Echo = new Echo({
     wsPort,
     wssPort: wsPort,
     forceTLS: isTLS,
-    enabledTransports: isTLS ? ['wss'] : ['ws'],
+    disableStats: true,
+    enabledTransports: ['ws', 'wss'],  // both; forceTLS controls which is used
 });
