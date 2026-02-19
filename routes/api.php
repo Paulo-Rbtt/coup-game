@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ChatController;
 use App\Http\Controllers\GameActionController;
 use App\Http\Controllers\LobbyController;
 use Illuminate\Support\Facades\Route;
@@ -21,3 +22,6 @@ Route::post('/games/{game}/challenge-block', [GameActionController::class, 'chal
 Route::post('/games/{game}/lose-influence', [GameActionController::class, 'loseInfluence']);
 Route::post('/games/{game}/exchange', [GameActionController::class, 'exchange']);
 Route::post('/games/{game}/leave', [GameActionController::class, 'leave']);
+
+// ── Chat ─────────────────────────────────────────────
+Route::post('/games/{game}/chat', [ChatController::class, 'send']);

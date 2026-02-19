@@ -8,6 +8,26 @@
       </span>
     </div>
     <p v-if="phaseDetail" class="text-xs text-gray-400">{{ phaseDetail }}</p>
+
+    <!-- Pass progress bar (during reaction phases) -->
+    <div v-if="showPassProgress" class="mt-2">
+      <div class="flex items-center gap-2 mb-1.5">
+        <span class="text-[10px] text-gray-500 font-medium">Decisões:</span>
+        <span class="text-[10px] text-gray-500">
+          {{ passedCount }}/{{ totalNeedPass }}
+        </span>
+      </div>
+      <div class="flex gap-1 flex-wrap">
+        <span v-for="p in reactionPlayers" :key="p.id"
+              class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium border"
+              :class="p.hasPassed
+                ? 'bg-green-500/15 text-green-400 border-green-500/30'
+                : 'bg-gray-700/40 text-gray-500 border-gray-600/40'">
+          <span>{{ p.hasPassed ? '✓' : '⏳' }}</span>
+          {{ p.name }}
+        </span>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -60,6 +80,43 @@ const phaseDetail = computed(() => {
   }
   return '';
 });
+
+// ── Pass progress for reaction phases ──────────
+const isReactionPhase = computed(() => {
+  return ['awaiting_challenge_action', 'awaiting_block', 'awaiting_challenge_block'].includes(props.phase);
+});
+
+const showPassProgress = computed(() => {
+  return isReactionPhase.value && reactionPlayers.value.length > 0;
+});
+
+const reactionPlayers = computed(() => {
+  if (!isReactionPhase.value || !props.players || !props.turnState) return [];
+
+  const ts = props.turnState;
+  const passedIds = ts.passed_players || [];
+
+  // Determine which players can react (alive, not the actor/blocker)
+  return props.players
+    .filter(p => {
+      if (!p.is_alive) return false;
+      if (props.phase === 'awaiting_challenge_action') return p.id !== ts.actor_id;
+      if (props.phase === 'awaiting_block') {
+        if (ts.action === 'foreign_aid') return p.id !== ts.actor_id;
+        return p.id === ts.target_id;
+      }
+      if (props.phase === 'awaiting_challenge_block') return p.id !== ts.blocker_id;
+      return false;
+    })
+    .map(p => ({
+      id: p.id,
+      name: p.name,
+      hasPassed: passedIds.includes(p.id),
+    }));
+});
+
+const passedCount = computed(() => reactionPlayers.value.filter(p => p.hasPassed).length);
+const totalNeedPass = computed(() => reactionPlayers.value.length);
 
 const phaseColor = computed(() => {
   if (props.phase === 'awaiting_influence_loss') return 'bg-red-500';

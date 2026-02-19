@@ -15,6 +15,20 @@
           {{ player.name }}
         </span>
         <span v-if="!player.is_alive" class="text-xs text-red-400">Exilado</span>
+
+        <!-- Pass / pending indicator -->
+        <span v-if="player.is_alive && passStatus === 'passed'"
+              class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-green-500/20 text-green-400 border border-green-500/30">
+          ✓ Passou
+        </span>
+        <span v-else-if="player.is_alive && passStatus === 'pending'"
+              class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 animate-pulse">
+          ⏳ Pendente
+        </span>
+        <span v-else-if="player.is_alive && passStatus === 'acting'"
+              class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30 animate-pulse">
+          🎯 Sua vez
+        </span>
       </div>
       <div class="flex items-center gap-1 text-amber-400">
         <CoinIcon class="w-4 h-4" />
@@ -50,6 +64,7 @@ const props = defineProps({
   player: Object,
   isCurrentTurn: Boolean,
   isTurnStateTarget: Boolean,
+  passStatus: { type: String, default: null }, // 'passed' | 'pending' | 'acting' | null
 });
 
 const emit = defineEmits(['select']);

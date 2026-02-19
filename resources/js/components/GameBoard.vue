@@ -29,6 +29,35 @@
 
     <HelpRules :visible="showHelp" @close="showHelp = false" />
 
+    <!-- Chat -->
+    <ChatPanel v-if="state.game?.id && state.player?.id"
+               :gameId="state.game.id"
+               :myId="state.player.id" />
+
+    <!-- Nudge alert — shows when it's your turn and you haven't acted -->
+    <Transition name="nudge-slide">
+      <div v-if="showNudge"
+           class="mx-4 mt-3 px-4 py-3 rounded-xl border-2 flex items-center justify-between gap-3 animate-pulse-slow"
+           :class="nudgeUrgent
+             ? 'bg-red-900/60 border-red-500 shadow-lg shadow-red-500/20'
+             : 'bg-amber-900/40 border-amber-500/60 shadow-lg shadow-amber-500/10'">
+        <div class="flex items-center gap-3">
+          <span class="text-2xl" :class="{ 'animate-bounce': nudgeUrgent }">{{ nudgeUrgent ? '🚨' : '⏰' }}</span>
+          <div>
+            <p class="text-sm font-bold" :class="nudgeUrgent ? 'text-red-300' : 'text-amber-300'">
+              {{ nudgeUrgent ? 'Você precisa jogar!' : 'É a sua vez!' }}
+            </p>
+            <p class="text-xs" :class="nudgeUrgent ? 'text-red-400/70' : 'text-amber-400/60'">
+              {{ nudgeMessage }}
+            </p>
+          </div>
+        </div>
+        <span class="text-xs font-mono tabular-nums" :class="nudgeUrgent ? 'text-red-400' : 'text-amber-400/70'">
+          {{ nudgeTimer }}s
+        </span>
+      </div>
+    </Transition>
+
     <!-- Main content -->
     <div class="flex-1 flex flex-col lg:flex-row gap-4 p-4">
       <!-- Opponents area -->
@@ -38,6 +67,7 @@
                       :player="player"
                       :isCurrentTurn="state.game.current_player_id === player.id"
                       :isTurnStateTarget="state.game.turn_state?.target_id === player.id"
+                      :passStatus="getPlayerPassStatus(player)"
                       @select="selectTarget(player.id)" />
         </div>
 
@@ -128,8 +158,9 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, ref, watch, onMounted, onUnmounted } from 'vue';
 import { useGame } from '../composables/useGame';
+import { playYourTurn, playTurnEnd, playNudge, initAudio } from '../composables/useSound';
 import PlayerCard from './PlayerCard.vue';
 import CharacterCard from './CharacterCard.vue';
 import ActionPanel from './ActionPanel.vue';
@@ -140,6 +171,7 @@ import PhaseIndicator from './PhaseIndicator.vue';
 import EventLog from './EventLog.vue';
 import CoinIcon from './icons/CoinIcon.vue';
 import HelpRules from './HelpRules.vue';
+import ChatPanel from './ChatPanel.vue';
 
 const {
   state,
@@ -161,6 +193,165 @@ const {
 
 const cardsVisible = ref(false);
 const showHelp = ref(false);
+
+// ── Audio init on first click ────────────────
+onMounted(() => {
+  const handler = () => {
+    initAudio();
+    document.removeEventListener('click', handler);
+  };
+  document.addEventListener('click', handler);
+});
+
+// ── Nudge / timer state ──────────────────────
+const NUDGE_DELAY = 10;       // seconds before first nudge
+const NUDGE_URGENT = 20;      // seconds before urgent nudge
+const nudgeTimer = ref(0);
+const showNudge = ref(false);
+const nudgeUrgent = ref(false);
+let nudgeInterval = null;
+let lastNudgeSoundAt = 0;
+
+function needsMyAction() {
+  const phase = state.game?.phase;
+  const ts = state.game?.turn_state;
+  if (!phase || !ts || !state.player?.is_alive) return false;
+
+  // My turn to select action
+  if (phase === 'action_selection' && isMyTurn.value) return true;
+
+  // I need to lose influence
+  if (phase === 'awaiting_influence_loss' && ts.awaiting_influence_loss_from === state.player?.id) return true;
+
+  // I need to exchange
+  if (phase === 'awaiting_exchange_return' && ts.actor_id === state.player?.id) return true;
+
+  // Reaction phases — I haven't passed yet
+  if (['awaiting_challenge_action', 'awaiting_block', 'awaiting_challenge_block'].includes(phase)) {
+    const passedIds = ts.passed_players || [];
+    if (passedIds.includes(state.player?.id)) return false;
+
+    if (phase === 'awaiting_challenge_action' && state.player?.id !== ts.actor_id) return true;
+    if (phase === 'awaiting_block') {
+      if (ts.action === 'foreign_aid' && state.player?.id !== ts.actor_id) return true;
+      if (state.player?.id === ts.target_id) return true;
+    }
+    if (phase === 'awaiting_challenge_block' && state.player?.id !== ts.blocker_id) return true;
+  }
+
+  return false;
+}
+
+const nudgeMessage = computed(() => {
+  const phase = state.game?.phase;
+  if (phase === 'action_selection') return 'Escolha uma ação para jogar.';
+  if (phase === 'awaiting_influence_loss') return 'Escolha uma influência para perder.';
+  if (phase === 'awaiting_exchange_return') return 'Escolha as cartas para devolver.';
+  if (phase === 'awaiting_challenge_action') return 'Decida: contestar ou passar.';
+  if (phase === 'awaiting_block') return 'Decida: bloquear ou passar.';
+  if (phase === 'awaiting_challenge_block') return 'Decida: contestar bloqueio ou passar.';
+  return 'Faça sua jogada.';
+});
+
+function startNudgeTimer() {
+  stopNudgeTimer();
+  nudgeTimer.value = 0;
+  showNudge.value = false;
+  nudgeUrgent.value = false;
+
+  nudgeInterval = setInterval(() => {
+    if (!needsMyAction()) {
+      stopNudgeTimer();
+      return;
+    }
+    nudgeTimer.value++;
+
+    if (nudgeTimer.value >= NUDGE_DELAY && !showNudge.value) {
+      showNudge.value = true;
+    }
+    if (nudgeTimer.value >= NUDGE_URGENT) {
+      nudgeUrgent.value = true;
+    }
+
+    // Play nudge sound every 10s after it becomes visible
+    if (showNudge.value && (nudgeTimer.value - lastNudgeSoundAt) >= 10) {
+      lastNudgeSoundAt = nudgeTimer.value;
+      playNudge();
+    }
+  }, 1000);
+}
+
+function stopNudgeTimer() {
+  if (nudgeInterval) {
+    clearInterval(nudgeInterval);
+    nudgeInterval = null;
+  }
+  nudgeTimer.value = 0;
+  showNudge.value = false;
+  nudgeUrgent.value = false;
+  lastNudgeSoundAt = 0;
+}
+
+onUnmounted(() => stopNudgeTimer());
+
+// ── Sound + nudge triggers on game state changes ──
+let prevNeedsAction = false;
+let prevPhase = null;
+
+watch(() => [state.game?.phase, state.game?.turn_state, state.game?.current_player_id], () => {
+  const currentPhase = state.game?.phase;
+  const nowNeedsAction = needsMyAction();
+
+  // My action started → play "your turn" sound
+  if (nowNeedsAction && !prevNeedsAction) {
+    playYourTurn();
+    startNudgeTimer();
+  }
+
+  // My action ended (I acted) → play turn end
+  if (!nowNeedsAction && prevNeedsAction) {
+    playTurnEnd();
+    stopNudgeTimer();
+  }
+
+  // Phase changed but I still need action → restart nudge timer
+  if (nowNeedsAction && currentPhase !== prevPhase) {
+    startNudgeTimer();
+  }
+
+  prevNeedsAction = nowNeedsAction;
+  prevPhase = currentPhase;
+}, { deep: true });
+
+// ── Pass status per player ───────────────────
+function getPlayerPassStatus(player) {
+  const phase = state.game?.phase;
+  const ts = state.game?.turn_state;
+  if (!phase || !ts || !player.is_alive) return null;
+
+  const isReactionPhase = ['awaiting_challenge_action', 'awaiting_block', 'awaiting_challenge_block'].includes(phase);
+  if (!isReactionPhase) {
+    // Not a reaction phase — show acting indicator for whose turn it is
+    if (phase === 'action_selection' && state.game.current_player_id === player.id) return 'acting';
+    if (phase === 'awaiting_influence_loss' && ts.awaiting_influence_loss_from === player.id) return 'acting';
+    if (phase === 'awaiting_exchange_return' && ts.actor_id === player.id) return 'acting';
+    return null;
+  }
+
+  // Check if this player can even react in this phase
+  let canReact = false;
+  if (phase === 'awaiting_challenge_action') canReact = player.id !== ts.actor_id;
+  else if (phase === 'awaiting_block') {
+    if (ts.action === 'foreign_aid') canReact = player.id !== ts.actor_id;
+    else canReact = player.id === ts.target_id;
+  }
+  else if (phase === 'awaiting_challenge_block') canReact = player.id !== ts.blocker_id;
+
+  if (!canReact) return null;
+
+  const passedIds = ts.passed_players || [];
+  return passedIds.includes(player.id) ? 'passed' : 'pending';
+}
 
 // Force reveal when the player needs to interact with their cards
 const forceReveal = computed(() => {
@@ -228,3 +419,23 @@ function handleExchange(keepCards) {
   exchangeCards(keepCards);
 }
 </script>
+
+<style scoped>
+.nudge-slide-enter-active,
+.nudge-slide-leave-active {
+  transition: all 0.35s ease;
+}
+.nudge-slide-enter-from,
+.nudge-slide-leave-to {
+  opacity: 0;
+  transform: translateY(-12px);
+}
+
+@keyframes pulse-slow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
+.animate-pulse-slow {
+  animation: pulse-slow 2s ease-in-out infinite;
+}
+</style>

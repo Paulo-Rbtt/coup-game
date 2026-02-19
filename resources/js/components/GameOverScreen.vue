@@ -41,12 +41,18 @@
         </button>
       </div>
     </div>
+
+    <!-- Chat -->
+    <ChatPanel v-if="state.game?.id && state.player?.id"
+               :gameId="state.game.id"
+               :myId="state.player.id" />
   </div>
 </template>
 
 <script setup>
 import { computed } from 'vue';
 import { useGame } from '../composables/useGame';
+import ChatPanel from './ChatPanel.vue';
 
 const { state, leaveGame, rematchGame } = useGame();
 
