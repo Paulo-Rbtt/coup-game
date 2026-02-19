@@ -186,8 +186,18 @@ function mapEventToAnimation(event) {
     };
   }
 
+  if (type === 'influence_lost') {
+    const charInfo = event.character ? CHARACTER_MAP[event.character] : null;
+    return {
+      component: charInfo ? charInfo.component : markRaw(ExileSvg),
+      title: `${event.player_name} perdeu influência!`,
+      subtitle: charInfo ? charInfo.label : null,
+      duration: 2000,
+    };
+  }
+
   // Don't animate these event types
-  // action_resolved, influence_lost, exchange_started, exchange_completed, turn_start, game_started
+  // action_resolved, exchange_started, exchange_completed, turn_start, game_started
   return null;
 }
 

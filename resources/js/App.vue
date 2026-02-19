@@ -16,19 +16,41 @@
 
     <!-- Screens -->
     <LobbyScreen v-if="!state.game || state.game.phase === 'lobby'" />
-    <GameBoard v-else-if="state.game.phase !== 'game_over'" />
+    <GameBoard v-else-if="showBoard" />
     <GameOverScreen v-else />
   </div>
 </template>
 
 <script setup>
-import { onMounted } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { useGame } from './composables/useGame';
 import LobbyScreen from './components/LobbyScreen.vue';
 import GameBoard from './components/GameBoard.vue';
 import GameOverScreen from './components/GameOverScreen.vue';
 
 const { state, reconnect } = useGame();
+
+// Delay game over screen to allow animations to play
+const delayingGameOver = ref(false);
+let gameOverTimer = null;
+
+const showBoard = computed(() => {
+  if (state.game?.phase === 'game_over') {
+    return delayingGameOver.value; // Show board during animation delay
+  }
+  return true; // Any non-lobby, non-game_over phase
+});
+
+watch(() => state.game?.phase, (newPhase, oldPhase) => {
+  if (newPhase === 'game_over' && oldPhase && oldPhase !== 'game_over' && oldPhase !== 'lobby') {
+    // Game just ended — keep GameBoard visible for animations
+    delayingGameOver.value = true;
+    if (gameOverTimer) clearTimeout(gameOverTimer);
+    gameOverTimer = setTimeout(() => {
+      delayingGameOver.value = false;
+    }, 10000); // 10s for final animations (influence_lost + exile + victory)
+  }
+});
 
 onMounted(async () => {
   await reconnect();

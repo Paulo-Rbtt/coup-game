@@ -41,6 +41,18 @@ class CleanInactiveGames extends Command
             $this->info("Lobby {$game->code} deleted (inactive).");
         }
 
+        // 1b. Delete any non-game_over rooms that have zero players (orphaned)
+        $orphaned = Game::whereNotIn('phase', [GamePhase::GAME_OVER])
+            ->whereDoesntHave('players')
+            ->where('updated_at', '<', now()->subMinutes(2))
+            ->get();
+
+        foreach ($orphaned as $game) {
+            $game->delete();
+            $cleaned++;
+            $this->info("Orphaned room {$game->code} deleted (no players).");
+        }
+
         // 2. In active games, kick players who haven't acted in 5 minutes
         $activePhases = [
             GamePhase::ACTION_SELECTION,

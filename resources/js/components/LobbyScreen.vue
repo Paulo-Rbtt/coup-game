@@ -173,13 +173,13 @@
                  class="flex items-center justify-between px-3 py-2 rounded-lg border transition"
                  :class="room.is_lobby ? 'bg-green-900/20 border-green-700/50 hover:border-green-500' : 'bg-gray-700/30 border-gray-600'">
               <div class="min-w-0 flex-1">
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-2 flex-wrap">
                   <span class="font-mono font-bold text-sm" :class="room.is_lobby ? 'text-green-400' : 'text-gray-400'">
                     {{ room.code }}
                   </span>
                   <span v-if="room.is_lobby"
                         class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-green-500/20 text-green-400 border border-green-500/30">
-                    ABERTA
+                    LOBBY
                   </span>
                   <span v-else
                         class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
@@ -192,13 +192,19 @@
               </div>
               <button v-if="room.is_lobby && room.player_count < room.max_players"
                       @click="joinRoom(room.code)"
-                      class="ml-2 px-3 py-1.5 rounded-lg text-xs font-bold bg-green-600 hover:bg-green-500 text-white transition shrink-0 cursor-pointer">
+                      :disabled="!playerName.trim()"
+                      class="ml-2 px-3 py-1.5 rounded-lg text-xs font-bold transition shrink-0 cursor-pointer
+                             disabled:opacity-40 disabled:cursor-not-allowed"
+                      :class="playerName.trim() ? 'bg-green-600 hover:bg-green-500 text-white' : 'bg-gray-600 text-gray-400'">
                 Entrar
               </button>
-              <span v-else-if="room.is_lobby" class="ml-2 text-xs text-gray-500">Cheia</span>
-              <span v-else class="ml-2 text-xs text-gray-500">Turno {{ room.turn_number }}</span>
+              <span v-else-if="room.is_lobby" class="ml-2 text-[10px] text-gray-500">Cheia</span>
+              <span v-else class="ml-2 text-[10px] text-gray-500">Turno {{ room.turn_number }}</span>
             </div>
           </div>
+          <p v-if="openRooms.length > 0 && !playerName.trim()" class="text-[10px] text-amber-400/70 mt-2 text-center">
+            ☝ Digite seu nome acima para entrar em uma sala
+          </p>
         </div>
       </div>
     </div>
@@ -206,7 +212,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useGame } from '../composables/useGame';
 import api from '../api';
 import HelpRules from './HelpRules.vue';
@@ -222,6 +228,7 @@ const showRanking = ref(false);
 const showHistory = ref(false);
 const openRooms = ref([]);
 const loadingRooms = ref(false);
+let roomsInterval = null;
 
 const allPlayersReady = computed(() => {
   if (!state.game?.players) return false;
@@ -243,6 +250,15 @@ async function fetchRooms() {
 onMounted(() => {
   if (!state.game) {
     fetchRooms();
+    // Auto-refresh rooms every 10 seconds
+    roomsInterval = setInterval(fetchRooms, 10000);
+  }
+});
+
+onUnmounted(() => {
+  if (roomsInterval) {
+    clearInterval(roomsInterval);
+    roomsInterval = null;
   }
 });
 

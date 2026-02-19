@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\GamePhase;
 use App\Models\Game;
 use App\Models\GameResult;
 use Illuminate\Http\JsonResponse;
@@ -61,7 +62,7 @@ class RankingController extends Controller
     {
         $perPage = min($request->query('per_page', 20), 50);
 
-        $games = Game::where('phase', 'game_over')
+        $games = Game::where('phase', GamePhase::GAME_OVER)
             ->orderByDesc('updated_at')
             ->with(['results' => function ($q) {
                 $q->orderBy('placement');

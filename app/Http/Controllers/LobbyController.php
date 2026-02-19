@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\GamePhase;
 use App\Models\Game;
 use App\Models\Player;
 use App\Services\GameService;
@@ -77,18 +78,34 @@ class LobbyController extends Controller
      */
     public function listRooms(): JsonResponse
     {
-        $games = Game::whereIn('phase', ['lobby', 'action_selection', 'awaiting_challenge_action', 'awaiting_block', 'awaiting_challenge_block', 'awaiting_influence_loss', 'awaiting_exchange_return', 'resolving_challenge_action', 'resolving_challenge_block', 'resolving_action'])
+        // Only show rooms updated in the last 30 minutes
+        $freshCutoff = now()->subMinutes(30);
+
+        $games = Game::whereIn('phase', [
+                GamePhase::LOBBY,
+                GamePhase::ACTION_SELECTION,
+                GamePhase::AWAITING_CHALLENGE_ACTION,
+                GamePhase::AWAITING_BLOCK,
+                GamePhase::AWAITING_CHALLENGE_BLOCK,
+                GamePhase::AWAITING_INFLUENCE_LOSS,
+                GamePhase::AWAITING_EXCHANGE_RETURN,
+                GamePhase::RESOLVING_CHALLENGE_ACTION,
+                GamePhase::RESOLVING_CHALLENGE_BLOCK,
+                GamePhase::RESOLVING_ACTION,
+            ])
+            ->where('updated_at', '>=', $freshCutoff)
+            ->has('players') // Only rooms that still have players
             ->with('players')
-            ->orderByDesc('created_at')
+            ->orderByDesc('updated_at')
             ->take(20)
             ->get()
             ->map(function ($game) {
-                $isLobby = $game->phase === 'lobby';
+                $isLobby = $game->phase === GamePhase::LOBBY;
                 $elapsed = $game->updated_at->diffForHumans(null, true);
                 return [
                     'id' => $game->id,
                     'code' => $game->code,
-                    'phase' => $game->phase,
+                    'phase' => $game->phase->value,
                     'is_lobby' => $isLobby,
                     'player_count' => $game->players->count(),
                     'max_players' => $game->max_players,
