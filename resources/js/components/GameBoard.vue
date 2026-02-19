@@ -172,6 +172,10 @@
                        @confirm="handleExchange" />
       </div>
     </div>
+
+    <!-- Animation overlay -->
+    <AnimationOverlay :events="state.game?.event_log || []"
+                      :players="state.game?.players || []" />
   </div>
 </template>
 
@@ -190,6 +194,7 @@ import EventLog from './EventLog.vue';
 import CoinIcon from './icons/CoinIcon.vue';
 import HelpRules from './HelpRules.vue';
 import ChatPanel from './ChatPanel.vue';
+import AnimationOverlay from './AnimationOverlay.vue';
 
 const {
   state,

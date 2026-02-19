@@ -114,6 +114,18 @@ export function useGame() {
         }
     }
 
+    async function toggleReady() {
+        state.error = null;
+        try {
+            const { data } = await api.post(`/games/${state.game.id}/toggle-ready`);
+            if (state.player) {
+                state.player.is_ready = data.is_ready;
+            }
+        } catch (e) {
+            state.error = e.response?.data?.error || 'Erro ao alterar status.';
+        }
+    }
+
     async function refreshState() {
         if (!state.game) return;
         try {
@@ -202,6 +214,16 @@ export function useGame() {
         state.error = null;
     }
 
+    async function leaveLobby() {
+        if (!state.game || !state.player) return;
+        try {
+            await api.post(`/games/${state.game.id}/leave-lobby`);
+        } catch {
+            // Even if API fails, leave locally
+        }
+        leaveGame();
+    }
+
     async function abandonGame() {
         if (!state.game || !state.player) return;
         try {
@@ -260,6 +282,7 @@ export function useGame() {
         joinGame,
         reconnect,
         startGame,
+        toggleReady,
         refreshState,
         declareAction,
         pass,
@@ -269,6 +292,7 @@ export function useGame() {
         loseInfluence,
         exchangeCards,
         leaveGame,
+        leaveLobby,
         abandonGame,
         rematchGame,
         isMyTurn,

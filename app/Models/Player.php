@@ -18,6 +18,8 @@ class Player extends Model
         'revealed',
         'is_alive',
         'is_host',
+        'is_ready',
+        'last_activity_at',
     ];
 
     protected $casts = [
@@ -27,6 +29,8 @@ class Player extends Model
         'seat' => 'integer',
         'is_alive' => 'boolean',
         'is_host' => 'boolean',
+        'is_ready' => 'boolean',
+        'last_activity_at' => 'datetime',
     ];
 
     // ──────────────────────────────────────────
@@ -134,6 +138,7 @@ class Player extends Model
             'revealed' => $this->revealed ?? [],
             'is_alive' => $this->is_alive,
             'is_host' => $this->is_host,
+            'is_ready' => $this->is_ready,
         ];
     }
 

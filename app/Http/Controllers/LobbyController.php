@@ -73,6 +73,67 @@ class LobbyController extends Controller
     }
 
     /**
+     * GET /api/rooms — List open/active game rooms.
+     */
+    public function listRooms(): JsonResponse
+    {
+        $games = Game::whereIn('phase', ['lobby', 'action_selection', 'awaiting_challenge_action', 'awaiting_block', 'awaiting_challenge_block', 'awaiting_influence_loss', 'awaiting_exchange_return', 'resolving_challenge_action', 'resolving_challenge_block', 'resolving_action'])
+            ->with('players')
+            ->orderByDesc('created_at')
+            ->take(20)
+            ->get()
+            ->map(function ($game) {
+                $isLobby = $game->phase === 'lobby';
+                $elapsed = $game->updated_at->diffForHumans(null, true);
+                return [
+                    'id' => $game->id,
+                    'code' => $game->code,
+                    'phase' => $game->phase,
+                    'is_lobby' => $isLobby,
+                    'player_count' => $game->players->count(),
+                    'max_players' => $game->max_players,
+                    'players' => $game->players->pluck('name')->toArray(),
+                    'started' => !$isLobby,
+                    'elapsed' => $elapsed,
+                    'turn_number' => $game->turn_number,
+                    'created_at' => $game->created_at->toISOString(),
+                ];
+            });
+
+        return response()->json($games);
+    }
+
+    /**
+     * POST /api/games/{game}/toggle-ready — Toggle ready state.
+     */
+    public function toggleReady(Request $request, Game $game): JsonResponse
+    {
+        $player = $this->authenticatePlayer($request, $game);
+
+        try {
+            $isReady = $this->gameService->toggleReady($game, $player);
+            return response()->json(['is_ready' => $isReady]);
+        } catch (\RuntimeException $e) {
+            return response()->json(['error' => $e->getMessage()], 422);
+        }
+    }
+
+    /**
+     * POST /api/games/{game}/leave-lobby — Leave the lobby before game starts.
+     */
+    public function leaveLobby(Request $request, Game $game): JsonResponse
+    {
+        $player = $this->authenticatePlayer($request, $game);
+
+        try {
+            $this->gameService->leaveLobby($game, $player);
+            return response()->json(['success' => true]);
+        } catch (\RuntimeException $e) {
+            return response()->json(['error' => $e->getMessage()], 422);
+        }
+    }
+
+    /**
      * POST /api/games/{game}/start — Host starts the game.
      */
     public function start(Request $request, Game $game): JsonResponse

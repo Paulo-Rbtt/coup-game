@@ -21,6 +21,8 @@ class Game extends Model
         'winner_id',
         'min_players',
         'max_players',
+        'last_activity_at',
+        'started_at',
     ];
 
     protected $casts = [
@@ -32,6 +34,8 @@ class Game extends Model
         'current_player_index' => 'integer',
         'turn_number' => 'integer',
         'winner_id' => 'integer',
+        'last_activity_at' => 'datetime',
+        'started_at' => 'datetime',
     ];
 
     // ──────────────────────────────────────────

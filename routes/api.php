@@ -10,7 +10,10 @@ use Illuminate\Support\Facades\Route;
 Route::post('/games', [LobbyController::class, 'create']);
 Route::post('/games/join', [LobbyController::class, 'join']);
 Route::post('/games/reconnect', [LobbyController::class, 'reconnect']);
+Route::get('/rooms', [LobbyController::class, 'listRooms']);
 Route::post('/games/{game}/start', [LobbyController::class, 'start']);
+Route::post('/games/{game}/toggle-ready', [LobbyController::class, 'toggleReady']);
+Route::post('/games/{game}/leave-lobby', [LobbyController::class, 'leaveLobby']);
 Route::post('/games/{game}/rematch', [LobbyController::class, 'rematch']);
 Route::get('/games/{game}/state', [LobbyController::class, 'state']);
 

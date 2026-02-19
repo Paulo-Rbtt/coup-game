@@ -15,6 +15,21 @@ use Illuminate\Support\Facades\DB;
 class GameService
 {
     // ══════════════════════════════════════════════════════════════
+    // ACTIVITY TRACKING
+    // ══════════════════════════════════════════════════════════════
+
+    private function touchActivity(Game $game, ?Player $player = null): void
+    {
+        $game->last_activity_at = now();
+        $game->save();
+
+        if ($player) {
+            $player->last_activity_at = now();
+            $player->save();
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════
     // LOBBY
     // ══════════════════════════════════════════════════════════════
 
@@ -26,6 +41,7 @@ class GameService
                 'phase' => GamePhase::LOBBY,
                 'deck' => [],
                 'treasury' => 0,
+                'last_activity_at' => now(),
             ]);
 
             $player = $this->addPlayer($game, $playerName, true);
@@ -48,6 +64,7 @@ class GameService
 
             $player = $this->addPlayer($game, $playerName, false);
 
+            $this->touchActivity($game, $player);
             $this->broadcastPublic($game->fresh('players'));
 
             return ['game' => $game->fresh('players'), 'player' => $player];
@@ -79,6 +96,68 @@ class GameService
     }
 
     // ══════════════════════════════════════════════════════════════
+    // LEAVE LOBBY (before game starts)
+    // ══════════════════════════════════════════════════════════════
+
+    public function leaveLobby(Game $game, Player $player): void
+    {
+        DB::transaction(function () use ($game, $player) {
+            $game = Game::lockForUpdate()->find($game->id);
+
+            if ($game->phase !== GamePhase::LOBBY) {
+                throw new \RuntimeException('Só pode sair do lobby antes do jogo iniciar.');
+            }
+
+            $wasHost = $player->is_host;
+            $player->delete();
+
+            // Re-seat remaining players
+            $remaining = $game->players()->orderBy('seat')->get();
+            foreach ($remaining->values() as $idx => $p) {
+                $p->seat = $idx;
+                $p->save();
+            }
+
+            // If the host left, promote the next player
+            if ($wasHost && $remaining->count() > 0) {
+                $newHost = $remaining->first();
+                $newHost->is_host = true;
+                $newHost->save();
+            }
+
+            // If room is empty, delete in
+            if ($remaining->count() === 0) {
+                $game->delete();
+                return;
+            }
+
+            $this->broadcastPublic($game->fresh('players'));
+        });
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // TOGGLE READY
+    // ══════════════════════════════════════════════════════════════
+
+    public function toggleReady(Game $game, Player $player): bool
+    {
+        return DB::transaction(function () use ($game, $player) {
+            $game = Game::lockForUpdate()->find($game->id);
+
+            if ($game->phase !== GamePhase::LOBBY) {
+                throw new \RuntimeException('A partida já começou.');
+            }
+
+            $player->is_ready = !$player->is_ready;
+            $player->save();
+
+            $this->broadcastPublic($game->fresh('players'));
+
+            return $player->is_ready;
+        });
+    }
+
+    // ══════════════════════════════════════════════════════════════
     // START GAME
     // ══════════════════════════════════════════════════════════════
 
@@ -97,11 +176,27 @@ class GameService
                 throw new \RuntimeException('Partida já iniciada.');
             }
 
+            // All players must be ready
+            $notReady = $game->players()->where('is_ready', false)->count();
+            if ($notReady > 0) {
+                throw new \RuntimeException('Todos os jogadores precisam estar prontos.');
+            }
+
             // Build deck: 15 cards (3 × 5 characters)
             $deck = Game::buildDeck();
 
-            // Deal 2 cards to each player
+            // Randomize seat order (who goes first)
             $players = $game->players()->orderBy('seat')->get();
+            $seats = range(0, $players->count() - 1);
+            shuffle($seats);
+            foreach ($players as $i => $player) {
+                $player->seat = $seats[$i];
+                $player->save();
+            }
+            // Re-fetch in new seat order
+            $players = $game->players()->orderBy('seat')->get();
+
+            // Deal 2 cards to each player
             foreach ($players as $player) {
                 $hand = array_splice($deck, 0, 2);
                 $player->influences = $hand;
@@ -121,6 +216,8 @@ class GameService
             $game->turn_number = 1;
             $game->turn_state = null;
             $game->event_log = [];
+            $game->started_at = now();
+            $game->last_activity_at = now();
             $game->save();
 
             $game->appendLog([
@@ -141,6 +238,7 @@ class GameService
         DB::transaction(function () use ($game, $actor, $actionStr, $targetId) {
             $game = Game::lockForUpdate()->find($game->id);
             $game->load('players');
+            $this->touchActivity($game, $actor);
 
             $action = ActionType::from($actionStr);
 
@@ -255,6 +353,7 @@ class GameService
         DB::transaction(function () use ($game, $passer) {
             $game = Game::lockForUpdate()->find($game->id);
             $game->load('players');
+            $this->touchActivity($game, $passer);
             $ts = $game->turn_state;
 
             if (!in_array($game->phase, [
@@ -362,6 +461,7 @@ class GameService
         DB::transaction(function () use ($game, $challenger) {
             $game = Game::lockForUpdate()->find($game->id);
             $game->load('players');
+            $this->touchActivity($game, $challenger);
             $ts = $game->turn_state;
 
             if ($game->phase !== GamePhase::AWAITING_CHALLENGE_ACTION) {
@@ -443,6 +543,7 @@ class GameService
         DB::transaction(function () use ($game, $blocker, $characterStr) {
             $game = Game::lockForUpdate()->find($game->id);
             $game->load('players');
+            $this->touchActivity($game, $blocker);
             $ts = $game->turn_state;
 
             if ($game->phase !== GamePhase::AWAITING_BLOCK) {
@@ -499,6 +600,7 @@ class GameService
         DB::transaction(function () use ($game, $challenger) {
             $game = Game::lockForUpdate()->find($game->id);
             $game->load('players');
+            $this->touchActivity($game, $challenger);
             $ts = $game->turn_state;
 
             if ($game->phase !== GamePhase::AWAITING_CHALLENGE_BLOCK) {
@@ -625,6 +727,7 @@ class GameService
     {
         DB::transaction(function () use ($game, $player, $characterValue) {
             $game = Game::lockForUpdate()->find($game->id);
+            $this->touchActivity($game, $player);
             $ts = $game->turn_state;
 
             if ($game->phase !== GamePhase::AWAITING_INFLUENCE_LOSS) {
@@ -892,6 +995,7 @@ class GameService
     {
         DB::transaction(function () use ($game, $actor, $keepCards) {
             $game = Game::lockForUpdate()->find($game->id);
+            $this->touchActivity($game, $actor);
             $ts = $game->turn_state;
 
             if ($game->phase !== GamePhase::AWAITING_EXCHANGE_RETURN) {
@@ -1195,6 +1299,7 @@ class GameService
                 $player->influences = [];
                 $player->revealed = [];
                 $player->is_alive = true;
+                $player->is_ready = false;
                 $player->save();
             }
 
