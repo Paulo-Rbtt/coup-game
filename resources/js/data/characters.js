@@ -9,8 +9,8 @@ export const CHARACTERS = {
     },
     assassin: {
         name: 'Assassino',
-        color: '#1e1e1e',
-        darkColor: '#111111',
+        color: '#be123c',
+        darkColor: '#9f1239',
         icon: 'skull',
         action: 'Assassinar (3 moedas, alvo perde influência)',
         blocks: null,

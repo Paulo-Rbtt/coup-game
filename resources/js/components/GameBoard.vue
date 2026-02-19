@@ -1,27 +1,24 @@
 <template>
   <div class="min-h-screen flex flex-col">
-    <!-- Top bar -->
-    <header class="flex items-center justify-between px-4 py-3 bg-gray-900/80 backdrop-blur border-b border-gray-800">
-      <div class="flex items-center gap-3">
-        <h1 class="text-xl font-black text-amber-400">COUP</h1>
-        <span class="text-xs text-gray-500 font-mono">{{ state.game.code }}</span>
+    <!-- Top bar (compact on mobile) -->
+    <header class="flex items-center justify-between px-3 py-2 sm:px-4 sm:py-3 bg-gray-900/80 backdrop-blur border-b border-gray-800">
+      <div class="flex items-center gap-2 sm:gap-3">
+        <h1 class="text-lg sm:text-xl font-black text-amber-400">COUP</h1>
+        <span class="text-[10px] sm:text-xs text-gray-500 font-mono">{{ state.game.code }}</span>
       </div>
-      <div class="flex items-center gap-4">
-        <span class="text-sm text-gray-400">Turno {{ state.game.turn_number }}</span>
+      <div class="flex items-center gap-2 sm:gap-4">
+        <span class="text-xs sm:text-sm text-gray-400 hidden sm:inline">Turno {{ state.game.turn_number }}</span>
         <div class="flex items-center gap-1 text-amber-400">
-          <CoinIcon class="w-4 h-4" />
-          <span class="text-sm font-bold">{{ state.game.treasury }}</span>
-          <span class="text-xs text-gray-500">tesouro</span>
+          <CoinIcon class="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+          <span class="text-xs sm:text-sm font-bold">{{ state.game.treasury }}</span>
         </div>
-        <div class="flex items-center gap-1 text-gray-400">
-          <span class="text-xs">🃏 {{ state.game.deck_count }}</span>
-        </div>
+        <span class="text-[10px] sm:text-xs text-gray-400">🃏 {{ state.game.deck_count }}</span>
         <button @click="confirmLeave"
-                class="ml-2 px-3 py-1 text-xs rounded-lg bg-red-900/60 hover:bg-red-800 text-red-300 border border-red-700 transition-colors cursor-pointer">
+                class="px-2 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs rounded-lg bg-red-900/60 hover:bg-red-800 text-red-300 border border-red-700 transition-colors cursor-pointer">
           Sair
         </button>
         <button @click="showHelp = true"
-                class="px-3 py-1 text-xs rounded-lg bg-gray-700/60 hover:bg-gray-600 text-gray-400 hover:text-amber-400 border border-gray-600 transition-colors cursor-pointer">
+                class="px-2 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs rounded-lg bg-gray-700/60 hover:bg-gray-600 text-gray-400 hover:text-amber-400 border border-gray-600 transition-colors cursor-pointer">
           ❓
         </button>
       </div>
@@ -34,71 +31,92 @@
                :gameId="state.game.id"
                :myId="state.player.id" />
 
-    <!-- Nudge alert — shows when it's your turn and you haven't acted -->
+    <!-- Nudge alert -->
     <Transition name="nudge-slide">
       <div v-if="showNudge"
-           class="mx-4 mt-3 px-4 py-3 rounded-xl border-2 flex items-center justify-between gap-3 animate-pulse-slow"
+           class="mx-3 sm:mx-4 mt-2 sm:mt-3 px-3 sm:px-4 py-2 sm:py-3 rounded-xl border-2 flex items-center justify-between gap-2 sm:gap-3 animate-pulse-slow"
            :class="nudgeUrgent
              ? 'bg-red-900/60 border-red-500 shadow-lg shadow-red-500/20'
              : 'bg-amber-900/40 border-amber-500/60 shadow-lg shadow-amber-500/10'">
-        <div class="flex items-center gap-3">
-          <span class="text-2xl" :class="{ 'animate-bounce': nudgeUrgent }">{{ nudgeUrgent ? '🚨' : '⏰' }}</span>
+        <div class="flex items-center gap-2 sm:gap-3">
+          <span class="text-xl sm:text-2xl" :class="{ 'animate-bounce': nudgeUrgent }">{{ nudgeUrgent ? '🚨' : '⏰' }}</span>
           <div>
-            <p class="text-sm font-bold" :class="nudgeUrgent ? 'text-red-300' : 'text-amber-300'">
+            <p class="text-xs sm:text-sm font-bold" :class="nudgeUrgent ? 'text-red-300' : 'text-amber-300'">
               {{ nudgeUrgent ? 'Você precisa jogar!' : 'É a sua vez!' }}
             </p>
-            <p class="text-xs" :class="nudgeUrgent ? 'text-red-400/70' : 'text-amber-400/60'">
+            <p class="text-[10px] sm:text-xs" :class="nudgeUrgent ? 'text-red-400/70' : 'text-amber-400/60'">
               {{ nudgeMessage }}
             </p>
           </div>
         </div>
-        <span class="text-xs font-mono tabular-nums" :class="nudgeUrgent ? 'text-red-400' : 'text-amber-400/70'">
+        <span class="text-[10px] sm:text-xs font-mono tabular-nums" :class="nudgeUrgent ? 'text-red-400' : 'text-amber-400/70'">
           {{ nudgeTimer }}s
         </span>
       </div>
     </Transition>
 
-    <!-- Main content -->
-    <div class="flex-1 flex flex-col lg:flex-row gap-4 p-4">
-      <!-- Opponents area -->
-      <div class="flex-1">
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          <PlayerCard v-for="player in otherPlayers" :key="player.id"
-                      :player="player"
-                      :isCurrentTurn="state.game.current_player_id === player.id"
-                      :isTurnStateTarget="state.game.turn_state?.target_id === player.id"
-                      :passStatus="getPlayerPassStatus(player)"
-                      @select="selectTarget(player.id)" />
+    <!-- MOBILE LAYOUT: My info + actions first, then opponents -->
+    <!-- DESKTOP LAYOUT: Opponents left, my area right -->
+    <div class="flex-1 flex flex-col lg:flex-row gap-3 sm:gap-4 p-3 sm:p-4">
+
+      <!-- Opponents area (below on mobile, left on desktop) -->
+      <div class="flex-1 order-2 lg:order-1">
+        <!-- Collapsible on mobile -->
+        <button @click="opponentsExpanded = !opponentsExpanded"
+                class="lg:hidden w-full flex items-center justify-between px-3 py-2 mb-2 rounded-lg bg-gray-800/40 border border-gray-700 text-sm text-gray-400 cursor-pointer">
+          <span>👥 Oponentes ({{ otherPlayers.length }})</span>
+          <span class="text-xs">{{ opponentsExpanded ? '▲' : '▼' }}</span>
+        </button>
+
+        <div :class="{ 'hidden lg:block': !opponentsExpanded }">
+          <div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
+            <PlayerCard v-for="player in otherPlayers" :key="player.id"
+                        :player="player"
+                        :isCurrentTurn="state.game.current_player_id === player.id"
+                        :isTurnStateTarget="state.game.turn_state?.target_id === player.id"
+                        :passStatus="getPlayerPassStatus(player)"
+                        :chatMessage="getPlayerChatMessage(player)"
+                        @select="selectTarget(player.id)" />
+          </div>
         </div>
 
         <!-- Phase indicator -->
         <PhaseIndicator :phase="state.game.phase"
                         :turnState="state.game.turn_state"
                         :players="state.game.players"
-                        class="mt-4" />
+                        class="mt-3 sm:mt-4" />
 
-        <!-- Event log -->
-        <EventLog :events="state.game.event_log" :players="state.game.players" class="mt-4" />
+        <!-- Event log (collapsed by default on mobile) -->
+        <div class="mt-3 sm:mt-4">
+          <button @click="logExpanded = !logExpanded"
+                  class="lg:hidden w-full flex items-center justify-between px-3 py-2 mb-1 rounded-lg bg-gray-800/40 border border-gray-700 text-xs text-gray-500 cursor-pointer">
+            <span>📜 Histórico</span>
+            <span>{{ logExpanded ? '▲' : '▼' }}</span>
+          </button>
+          <div :class="{ 'hidden lg:block': !logExpanded }">
+            <EventLog :events="state.game.event_log" :players="state.game.players" />
+          </div>
+        </div>
       </div>
 
-      <!-- My area (right panel) -->
-      <div class="lg:w-80 space-y-4">
+      <!-- My area (top on mobile, right on desktop) -->
+      <div class="lg:w-80 space-y-3 sm:space-y-4 order-1 lg:order-2">
         <!-- My info -->
-        <div class="bg-gray-800/60 backdrop-blur rounded-xl p-4 border border-gray-700">
-          <div class="flex items-center justify-between mb-3">
-            <h3 class="font-bold text-amber-400">{{ state.player?.name }}</h3>
+        <div class="bg-gray-800/60 backdrop-blur rounded-xl p-3 sm:p-4 border border-gray-700">
+          <div class="flex items-center justify-between mb-2 sm:mb-3">
+            <h3 class="font-bold text-amber-400 text-sm sm:text-base">{{ state.player?.name }}</h3>
             <div class="flex items-center gap-2">
               <div class="flex items-center gap-1">
-                <CoinIcon class="w-5 h-5 text-amber-400" />
-                <span class="text-lg font-bold text-amber-400">{{ state.player?.coins }}</span>
+                <CoinIcon class="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" />
+                <span class="text-base sm:text-lg font-bold text-amber-400">{{ state.player?.coins }}</span>
               </div>
-              <!-- Peek cards button -->
               <button @click="cardsVisible = !cardsVisible"
-                      class="px-2 py-1 rounded-lg text-xs transition-all duration-200 border"
+                      class="px-2 py-1 rounded-lg text-[10px] sm:text-xs transition-all duration-200 border cursor-pointer"
                       :class="cardsVisible
                         ? 'bg-amber-400/20 border-amber-400/50 text-amber-300'
                         : 'bg-gray-700/60 border-gray-600 text-gray-400 hover:text-amber-300 hover:border-amber-400/50'">
-                {{ cardsVisible ? '🙈 Esconder' : '👁 Ver cartas' }}
+                {{ cardsVisible ? '🙈' : '👁' }}
+                <span class="hidden sm:inline">{{ cardsVisible ? ' Esconder' : ' Ver cartas' }}</span>
               </button>
             </div>
           </div>
@@ -119,7 +137,7 @@
           </div>
 
           <!-- Must coup warning -->
-          <div v-if="mustCoup && isMyTurn" class="mt-3 px-3 py-2 rounded-lg bg-red-900/40 border border-red-700 text-red-300 text-xs text-center">
+          <div v-if="mustCoup && isMyTurn" class="mt-2 sm:mt-3 px-3 py-2 rounded-lg bg-red-900/40 border border-red-700 text-red-300 text-[10px] sm:text-xs text-center">
             ⚠ 10+ moedas: você DEVE dar Golpe de Estado
           </div>
         </div>
@@ -131,7 +149,7 @@
                      :opponents="aliveOpponents"
                      @action="handleAction" />
 
-        <!-- Reaction buttons (challenge/block/pass) -->
+        <!-- Reaction buttons -->
         <ReactionPanel v-if="showReactionPanel"
                        :phase="state.game.phase"
                        :turnState="state.game.turn_state"
@@ -158,7 +176,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch, onMounted, onUnmounted } from 'vue';
+import { computed, ref, reactive, watch, onMounted, onUnmounted } from 'vue';
 import { useGame } from '../composables/useGame';
 import { playYourTurn, playTurnEnd, playNudge, initAudio } from '../composables/useSound';
 import PlayerCard from './PlayerCard.vue';
@@ -193,6 +211,8 @@ const {
 
 const cardsVisible = ref(false);
 const showHelp = ref(false);
+const opponentsExpanded = ref(false);
+const logExpanded = ref(false);
 
 // ── Audio init on first click ────────────────
 onMounted(() => {
@@ -201,6 +221,46 @@ onMounted(() => {
     document.removeEventListener('click', handler);
   };
   document.addEventListener('click', handler);
+});
+
+// ── Chat bubbles per player (8 ball pool style) ─────
+const playerChatBubbles = reactive({}); // { playerId: 'message text' }
+let chatBubbleTimers = {};
+
+function onChatBubble(e) {
+  const playerId = e.player_id;
+  if (!playerId || playerId === state.player?.id) return; // Don't show own messages as bubbles
+
+  // Set the message
+  playerChatBubbles[playerId] = e.message;
+
+  // Clear previous timer
+  if (chatBubbleTimers[playerId]) {
+    clearTimeout(chatBubbleTimers[playerId]);
+  }
+
+  // Auto-hide after 5 seconds
+  chatBubbleTimers[playerId] = setTimeout(() => {
+    delete playerChatBubbles[playerId];
+  }, 5000);
+}
+
+function getPlayerChatMessage(player) {
+  return playerChatBubbles[player.id] || null;
+}
+
+// Listen for chat messages for bubbles
+onMounted(() => {
+  if (window.Echo && state.game?.id) {
+    const channelName = `game.${state.game.id}`;
+    window.Echo.channel(channelName).listen('.chat.message', onChatBubble);
+  }
+});
+
+onUnmounted(() => {
+  // Clear all bubble timers
+  Object.values(chatBubbleTimers).forEach(t => clearTimeout(t));
+  chatBubbleTimers = {};
 });
 
 // ── Nudge / timer state ──────────────────────

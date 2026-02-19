@@ -1,8 +1,22 @@
 <template>
   <div class="bg-gray-800/60 backdrop-blur rounded-xl p-4 border border-amber-400/30">
-    <h3 class="text-sm font-bold text-amber-400 mb-3">
-      {{ hasPassed ? 'Aguardando...' : phaseTitle }}
-    </h3>
+    <div class="flex items-center justify-between mb-3">
+      <h3 class="text-sm font-bold text-amber-400">
+        {{ hasPassed ? 'Aguardando...' : phaseTitle }}
+      </h3>
+      <!-- Auto-pass countdown -->
+      <div v-if="!hasPassed && countdown > 0"
+           class="flex items-center gap-1.5">
+        <div class="w-7 h-7 rounded-full border-2 flex items-center justify-center text-xs font-bold tabular-nums"
+             :class="countdown <= 10
+               ? 'border-red-500 text-red-400 animate-pulse'
+               : countdown <= 20
+                 ? 'border-amber-500 text-amber-400'
+                 : 'border-gray-500 text-gray-400'">
+          {{ countdown }}
+        </div>
+      </div>
+    </div>
 
     <!-- Waiting state after passing -->
     <div v-if="hasPassed" class="text-center py-3">
@@ -61,13 +75,26 @@
           </button>
         </template>
       </div>
+
+      <!-- Auto-pass progress bar -->
+      <div v-if="countdown > 0" class="mt-3">
+        <div class="h-1 rounded-full bg-gray-700 overflow-hidden">
+          <div class="h-full rounded-full transition-all duration-1000 ease-linear"
+               :class="countdown <= 10 ? 'bg-red-500' : countdown <= 20 ? 'bg-amber-500' : 'bg-gray-500'"
+               :style="{ width: (countdown / AUTO_PASS_SECONDS * 100) + '%' }">
+          </div>
+        </div>
+        <p class="text-[10px] text-gray-600 mt-1 text-center">Auto-pass em {{ countdown }}s</p>
+      </div>
     </template>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, ref, watch, onUnmounted } from 'vue';
 import { CHARACTERS, ACTIONS } from '../data/characters';
+
+const AUTO_PASS_SECONDS = 30;
 
 const props = defineProps({
   phase: String,
@@ -77,6 +104,58 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['pass', 'challenge', 'block', 'challenge-block']);
+
+// ── Auto-pass countdown ─────────────────────
+const countdown = ref(0);
+let countdownInterval = null;
+
+function startCountdown() {
+  stopCountdown();
+  countdown.value = AUTO_PASS_SECONDS;
+  countdownInterval = setInterval(() => {
+    countdown.value--;
+    if (countdown.value <= 0) {
+      stopCountdown();
+      // Auto-pass
+      emit('pass');
+    }
+  }, 1000);
+}
+
+function stopCountdown() {
+  if (countdownInterval) {
+    clearInterval(countdownInterval);
+    countdownInterval = null;
+  }
+  countdown.value = 0;
+}
+
+// Start countdown when reaction phase begins, stop when passed
+watch(
+  () => [props.phase, props.hasPassed, props.turnState?.passed_players],
+  () => {
+    const isReactionPhase = ['awaiting_challenge_action', 'awaiting_block', 'awaiting_challenge_block'].includes(props.phase);
+    if (isReactionPhase && !props.hasPassed) {
+      // Only start if we haven't already started for this phase
+      if (!countdownInterval) {
+        startCountdown();
+      }
+    } else {
+      stopCountdown();
+    }
+  },
+  { immediate: true }
+);
+
+// Reset on phase change
+watch(() => props.phase, () => {
+  const isReactionPhase = ['awaiting_challenge_action', 'awaiting_block', 'awaiting_challenge_block'].includes(props.phase);
+  if (isReactionPhase && !props.hasPassed) {
+    startCountdown();
+  }
+});
+
+onUnmounted(() => stopCountdown());
 
 const phaseTitle = computed(() => {
   if (props.phase === 'awaiting_challenge_action') return 'Contestar ação?';

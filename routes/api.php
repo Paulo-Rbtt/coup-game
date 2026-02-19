@@ -3,6 +3,7 @@
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\GameActionController;
 use App\Http\Controllers\LobbyController;
+use App\Http\Controllers\RankingController;
 use Illuminate\Support\Facades\Route;
 
 // ── Lobby ────────────────────────────────────────────
@@ -25,3 +26,8 @@ Route::post('/games/{game}/leave', [GameActionController::class, 'leave']);
 
 // ── Chat ─────────────────────────────────────────────
 Route::post('/games/{game}/chat', [ChatController::class, 'send']);
+
+// ── Rankings & History ───────────────────────────────
+Route::get('/rankings', [RankingController::class, 'index']);
+Route::get('/history', [RankingController::class, 'history']);
+Route::get('/games/{game}/results', [RankingController::class, 'gameResults']);

@@ -5,13 +5,41 @@
       <div class="text-center mb-8">
         <h1 class="text-6xl font-black tracking-wider text-amber-400 drop-shadow-lg">COUP</h1>
         <p class="text-gray-400 mt-2 text-sm">Jogo de Blefe e Política</p>
-        <button @click="showHelp = true"
-                class="mt-3 px-4 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-amber-400 text-sm border border-gray-700 transition">
-          ❓ Como Jogar
-        </button>
+        <div class="flex justify-center gap-2 mt-3">
+          <button @click="showHelp = true"
+                  class="px-4 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-amber-400 text-sm border border-gray-700 transition cursor-pointer">
+            ❓ Como Jogar
+          </button>
+          <button @click="showRanking = true"
+                  class="px-4 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-amber-400 text-sm border border-gray-700 transition cursor-pointer">
+            🏆 Ranking
+          </button>
+          <button @click="showHistory = true"
+                  class="px-4 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-amber-400 text-sm border border-gray-700 transition cursor-pointer">
+            📜 Histórico
+          </button>
+        </div>
       </div>
 
       <HelpRules :visible="showHelp" @close="showHelp = false" />
+
+      <!-- Ranking overlay -->
+      <Transition name="fade">
+        <div v-if="showRanking" class="fixed inset-0 z-40 bg-black/60 flex items-center justify-center p-4" @click.self="showRanking = false">
+          <div class="max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+            <RankingScreen @close="showRanking = false" />
+          </div>
+        </div>
+      </Transition>
+
+      <!-- History overlay -->
+      <Transition name="fade">
+        <div v-if="showHistory" class="fixed inset-0 z-40 bg-black/60 flex items-center justify-center p-4" @click.self="showHistory = false">
+          <div class="max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+            <HistoryScreen @close="showHistory = false" />
+          </div>
+        </div>
+      </Transition>
 
       <!-- If already in a lobby, show room info -->
       <div v-if="state.game && state.game.phase === 'lobby'" class="bg-gray-800/60 backdrop-blur rounded-2xl p-6 shadow-xl border border-gray-700">
@@ -116,12 +144,16 @@
 import { ref } from 'vue';
 import { useGame } from '../composables/useGame';
 import HelpRules from './HelpRules.vue';
+import RankingScreen from './RankingScreen.vue';
+import HistoryScreen from './HistoryScreen.vue';
 
 const { state, createGame, joinGame, startGame, leaveGame, isHost } = useGame();
 
 const playerName = ref('');
 const roomCode = ref('');
 const showHelp = ref(false);
+const showRanking = ref(false);
+const showHistory = ref(false);
 
 async function handleCreate() {
   if (!playerName.value.trim()) return;
@@ -133,3 +165,14 @@ async function handleJoin() {
   await joinGame(roomCode.value, playerName.value.trim());
 }
 </script>
+
+<style scoped>
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.25s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+</style>

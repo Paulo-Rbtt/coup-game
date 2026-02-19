@@ -53,6 +53,11 @@ class Game extends Model
         return $this->belongsTo(Player::class, 'winner_id');
     }
 
+    public function results(): HasMany
+    {
+        return $this->hasMany(GameResult::class)->orderBy('placement');
+    }
+
     // ──────────────────────────────────────────
     // Helpers
     // ──────────────────────────────────────────
@@ -131,9 +136,9 @@ class Game extends Model
         $entry['turn'] = $this->turn_number;
         $log[] = $entry;
 
-        // Keep only last 20 entries to prevent payload too large
-        if (count($log) > 20) {
-            $log = array_slice($log, -20);
+        // Keep only last 50 entries in real-time state to prevent payload too large
+        if (count($log) > 50) {
+            $log = array_slice($log, -50);
         }
 
         $this->event_log = $log;

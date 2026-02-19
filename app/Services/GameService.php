@@ -8,6 +8,7 @@ use App\Enums\GamePhase;
 use App\Events\GameUpdated;
 use App\Events\PrivateStateUpdated;
 use App\Models\Game;
+use App\Models\GameResult;
 use App\Models\Player;
 use Illuminate\Support\Facades\DB;
 
@@ -682,6 +683,7 @@ class GameService
                 'winner_name' => $alive->first()?->name,
             ]);
 
+            $this->saveGameResults($game->fresh('players'));
             $this->broadcastAll($game->fresh('players'));
             return;
         }
@@ -983,6 +985,7 @@ class GameService
                 'winner_name' => $alive->first()?->name,
             ]);
 
+            $this->saveGameResults($game->fresh('players'));
             $this->broadcastAll($game->fresh('players'));
             return;
         }
@@ -1060,6 +1063,7 @@ class GameService
                     'winner_name' => $alive->first()?->name,
                 ]);
 
+                $this->saveGameResults($game->fresh('players'));
                 $this->broadcastAll($game->fresh('players'));
                 return;
             }
@@ -1225,6 +1229,49 @@ class GameService
         // Send private state to each alive player
         foreach ($game->players as $player) {
             broadcast(new PrivateStateUpdated($game, $player));
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // SAVE GAME RESULTS
+    // ══════════════════════════════════════════════════════════════
+
+    private function saveGameResults(Game $game): void
+    {
+        // Don't save if results already exist for this game
+        if (GameResult::where('game_id', $game->id)->exists()) {
+            return;
+        }
+
+        $players = $game->players()->orderBy('seat')->get();
+        $totalPlayers = $players->count();
+        $totalTurns = $game->turn_number;
+        $fullLog = $game->event_log ?? [];
+
+        // Calculate placement: winner = 1, alive = 2, dead sorted by when they died (later = better)
+        $placement = 0;
+        $deadPlayers = $players->where('is_alive', false)->values();
+        $alivePlayers = $players->where('is_alive', true)->values();
+
+        foreach ($players as $player) {
+            $placement++;
+            $isWinner = $player->id === $game->winner_id;
+
+            GameResult::create([
+                'game_id' => $game->id,
+                'player_id' => $player->id,
+                'player_name' => $player->name,
+                'seat' => $player->seat,
+                'coins' => $player->coins,
+                'influences' => $player->influences ?? [],
+                'revealed' => $player->revealed ?? [],
+                'is_winner' => $isWinner,
+                'is_alive' => $player->is_alive,
+                'placement' => $isWinner ? 1 : ($player->is_alive ? 2 : $totalPlayers - array_search($player->id, $deadPlayers->pluck('id')->toArray()) + 1),
+                'total_players' => $totalPlayers,
+                'total_turns' => $totalTurns,
+                'full_event_log' => $isWinner ? $fullLog : [], // Only store full log once (on winner row)
+            ]);
         }
     }
 }
