@@ -21,6 +21,7 @@ class GameResult extends Model
         'total_players',
         'total_turns',
         'full_event_log',
+        'started_at',
     ];
 
     protected $casts = [
@@ -34,6 +35,7 @@ class GameResult extends Model
         'placement' => 'integer',
         'total_players' => 'integer',
         'total_turns' => 'integer',
+        'started_at' => 'datetime',
     ];
 
     public function game(): BelongsTo

@@ -55,30 +55,44 @@ class RankingController extends Controller
         $perPage = min($request->query('per_page', 20), 50);
 
         try {
-            // Query from game_results (survives rematch, which resets game phase to lobby)
-            $paginatedIds = GameResult::select('game_id')
-                ->groupBy('game_id')
+            // Query from game_results grouped by game_id + started_at
+            // (same game_id can have multiple rounds after rematch)
+            $paginatedRounds = GameResult::select('game_id', 'started_at')
+                ->groupBy('game_id', 'started_at')
                 ->orderByDesc(DB::raw('MAX(created_at)'))
                 ->paginate($perPage);
 
-            $gameIds = $paginatedIds->pluck('game_id');
+            $rounds = $paginatedRounds->getCollection();
 
-            // Load results and games for these IDs
-            $allResults = GameResult::whereIn('game_id', $gameIds)
-                ->orderBy('placement')
-                ->get()
-                ->groupBy('game_id');
+            // Load all results for these rounds
+            $allResults = collect();
+            foreach ($rounds as $round) {
+                $results = GameResult::where('game_id', $round->game_id)
+                    ->where(function ($q) use ($round) {
+                        if ($round->started_at) {
+                            $q->where('started_at', $round->started_at);
+                        } else {
+                            $q->whereNull('started_at');
+                        }
+                    })
+                    ->orderBy('placement')
+                    ->get();
+                $key = $round->game_id . '|' . ($round->started_at ?? 'null');
+                $allResults->put($key, $results);
+            }
 
+            $gameIds = $rounds->pluck('game_id')->unique();
             $games = Game::whereIn('id', $gameIds)->get()->keyBy('id');
 
-            $data = $paginatedIds->getCollection()->map(function ($row) use ($allResults, $games) {
-                $gameId = $row->game_id;
-                $results = $allResults->get($gameId, collect());
-                $game = $games->get($gameId);
+            $data = $rounds->map(function ($round) use ($allResults, $games) {
+                $key = $round->game_id . '|' . ($round->started_at ?? 'null');
+                $results = $allResults->get($key, collect());
+                $game = $games->get($round->game_id);
                 $winner = $results->firstWhere('is_winner', true);
 
                 return [
-                    'id' => $gameId,
+                    'id' => $round->game_id,
+                    'started_at' => $round->started_at,
                     'code' => $game?->code ?? '???',
                     'finished_at' => $winner?->created_at?->toISOString() ?? $game?->updated_at?->toISOString(),
                     'total_turns' => $winner?->total_turns ?? $game?->turn_number ?? 0,
@@ -98,10 +112,10 @@ class RankingController extends Controller
 
             return response()->json([
                 'data' => $data,
-                'total' => $paginatedIds->total(),
-                'per_page' => $paginatedIds->perPage(),
-                'current_page' => $paginatedIds->currentPage(),
-                'last_page' => $paginatedIds->lastPage(),
+                'total' => $paginatedRounds->total(),
+                'per_page' => $paginatedRounds->perPage(),
+                'current_page' => $paginatedRounds->currentPage(),
+                'last_page' => $paginatedRounds->lastPage(),
             ]);
         } catch (\Throwable $e) {
             // Fallback: query games with phase game_over (before game_results table exists)
@@ -143,11 +157,17 @@ class RankingController extends Controller
     }
 
     /**
-     * GET /api/games/{game}/results — Detailed results for a specific game.
+     * GET /api/games/{game}/results — Detailed results for a specific game round.
      */
-    public function gameResults(Game $game): JsonResponse
+    public function gameResults(Game $game, Request $request): JsonResponse
     {
-        $results = $game->results()->get();
+        $startedAt = $request->query('started_at');
+
+        $query = $game->results();
+        if ($startedAt) {
+            $query->where('started_at', $startedAt);
+        }
+        $results = $query->orderBy('placement')->get();
 
         if ($results->isEmpty()) {
             return response()->json(['error' => 'Resultados não encontrados.'], 404);

@@ -18,9 +18,9 @@
     </div>
 
     <div v-else class="space-y-3">
-      <div v-for="game in games" :key="game.id"
+      <div v-for="game in games" :key="game.id + '|' + (game.started_at || '')"
            class="bg-gray-700/30 rounded-xl p-4 border border-gray-600/50 hover:border-amber-400/30 transition cursor-pointer"
-           @click="toggleExpand(game.id)">
+           @click="toggleExpand(game)">
 
         <!-- Game header -->
         <div class="flex items-center justify-between mb-2">
@@ -60,7 +60,7 @@
 
         <!-- Expanded details -->
         <Transition name="expand">
-          <div v-if="expandedGameId === game.id && expandedDetails" class="mt-3 pt-3 border-t border-gray-600/50">
+          <div v-if="expandedKey === (game.id + '|' + (game.started_at || '')) && expandedDetails" class="mt-3 pt-3 border-t border-gray-600/50">
             <div v-if="loadingDetails" class="text-center py-3">
               <div class="animate-spin w-5 h-5 border-2 border-amber-400 border-t-transparent rounded-full mx-auto"></div>
             </div>
@@ -105,7 +105,7 @@ const games = ref([]);
 const loading = ref(true);
 const currentPage = ref(1);
 const totalPages = ref(1);
-const expandedGameId = ref(null);
+const expandedKey = ref(null);
 const expandedDetails = ref(null);
 const loadingDetails = ref(false);
 
@@ -148,19 +148,21 @@ async function loadPage(page) {
   }
 }
 
-async function toggleExpand(gameId) {
-  if (expandedGameId.value === gameId) {
-    expandedGameId.value = null;
+async function toggleExpand(game) {
+  const key = game.id + '|' + (game.started_at || '');
+  if (expandedKey.value === key) {
+    expandedKey.value = null;
     expandedDetails.value = null;
     return;
   }
 
-  expandedGameId.value = gameId;
+  expandedKey.value = key;
   expandedDetails.value = null;
   loadingDetails.value = true;
 
   try {
-    const { data } = await api.get(`/games/${gameId}/results`);
+    const params = game.started_at ? { started_at: game.started_at } : {};
+    const { data } = await api.get(`/games/${game.id}/results`, { params });
     expandedDetails.value = data;
   } catch (e) {
     console.error('Failed to load game details:', e);

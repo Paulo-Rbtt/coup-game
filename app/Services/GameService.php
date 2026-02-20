@@ -1451,8 +1451,11 @@ class GameService
     private function saveGameResults(Game $game): void
     {
         try {
-            // Don't save if results already exist for this game
-            if (GameResult::where('game_id', $game->id)->exists()) {
+            // Don't save if results already exist for this specific round
+            // (same game_id + started_at identifies a unique round, even after rematch)
+            if (GameResult::where('game_id', $game->id)
+                    ->where('started_at', $game->started_at)
+                    ->exists()) {
                 return;
             }
 
@@ -1501,6 +1504,7 @@ class GameService
                     'total_players' => $totalPlayers,
                     'total_turns' => $totalTurns,
                     'full_event_log' => $isWinner ? $fullLog : [],
+                    'started_at' => $game->started_at,
                 ]);
             }
         } catch (\Throwable $e) {
