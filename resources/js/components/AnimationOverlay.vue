@@ -47,6 +47,7 @@ import CoupSvg from './svg/CoupSvg.vue';
 import IncomeSvg from './svg/IncomeSvg.vue';
 import ForeignAidSvg from './svg/ForeignAidSvg.vue';
 import ChallengeSvg from './svg/ChallengeSvg.vue';
+import CardSwapSvg from './svg/CardSwapSvg.vue';
 import VictorySvg from './svg/VictorySvg.vue';
 import ExileSvg from './svg/ExileSvg.vue';
 
@@ -145,10 +146,10 @@ function mapEventToAnimation(event) {
   if (type === 'challenge_failed' || type === 'challenge_block_failed') {
     const charInfo = event.character ? CHARACTER_MAP[event.character] : null;
     return {
-      component: charInfo ? charInfo.component : markRaw(ChallengeSvg),
+      component: markRaw(CardSwapSvg),
       title: 'Contestação falhou!',
-      subtitle: `${event.proven_by_name || event.blocker_name || 'Jogador'} provou ter ${charInfo?.label || event.character}`,
-      duration: 2500,
+      subtitle: `${event.proven_by_name || event.blocker_name || 'Jogador'} provou ter ${charInfo?.label || event.character} — carta trocada`,
+      duration: 3000,
     };
   }
 
