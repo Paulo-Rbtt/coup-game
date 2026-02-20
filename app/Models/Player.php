@@ -100,17 +100,16 @@ class Player extends Model
 
     /**
      * Prove a character during challenge: reveal the card, return to deck, draw replacement.
-     * If the player has only 1 influence, skip the swap to keep history accurate.
+     * Skip the swap if player has only 1 influence, or if $skipSwap is true (e.g. game is about to end).
      */
-    public function proveCharacter(Character $character): bool
+    public function proveCharacter(Character $character, bool $skipSwap = false): bool
     {
         if (!$this->hasCharacter($character)) {
             return false;
         }
 
-        // If this is the player's only influence, don't swap — keep the same card
-        // so that if they die later, the revealed card matches the game history.
-        if ($this->influenceCount() <= 1) {
+        // Don't swap if only 1 influence or caller says to skip
+        if ($this->influenceCount() <= 1 || $skipSwap) {
             return true;
         }
 

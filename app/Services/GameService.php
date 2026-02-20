@@ -582,8 +582,10 @@ class GameService
 
             // Resolve challenge
             if ($actor->hasCharacter($requiredChar)) {
-                // Actor proves → challenger loses 1 influence
-                $actor->proveCharacter($requiredChar);
+                // Skip card swap if this challenge loss will end the game
+                $gameWillEnd = $challenger->influenceCount() <= 1
+                    && $game->alivePlayers()->count() <= 2;
+                $actor->proveCharacter($requiredChar, $gameWillEnd);
 
                 $game->appendLog([
                     'type' => 'challenge_failed',
@@ -719,8 +721,10 @@ class GameService
             ]);
 
             if ($blocker->hasCharacter($blockChar)) {
-                // Blocker proves → challenger loses influence, block stands
-                $blocker->proveCharacter($blockChar);
+                // Skip card swap if this challenge loss will end the game
+                $gameWillEnd = $challenger->influenceCount() <= 1
+                    && $game->alivePlayers()->count() <= 2;
+                $blocker->proveCharacter($blockChar, $gameWillEnd);
 
                 $game->appendLog([
                     'type' => 'challenge_block_failed',
