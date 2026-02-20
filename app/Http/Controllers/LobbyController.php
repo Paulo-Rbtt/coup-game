@@ -206,14 +206,29 @@ class LobbyController extends Controller
     }
 
     /**
-     * POST /api/games/{game}/rematch — Reset game to lobby for rematch.
+     * POST /api/games/{game}/rematch — Request rematch (per-player).
      */
     public function rematch(Request $request, Game $game): JsonResponse
     {
-        $this->authenticatePlayer($request, $game);
+        $player = $this->authenticatePlayer($request, $game);
 
         try {
-            $this->gameService->rematchGame($game);
+            $this->gameService->rematchGame($game, $player);
+            return response()->json(['success' => true]);
+        } catch (\RuntimeException $e) {
+            return response()->json(['error' => $e->getMessage()], 422);
+        }
+    }
+
+    /**
+     * POST /api/games/{game}/leave-game-over — Leave after game is over.
+     */
+    public function leaveGameOver(Request $request, Game $game): JsonResponse
+    {
+        $player = $this->authenticatePlayer($request, $game);
+
+        try {
+            $this->gameService->leaveAfterGameOver($game, $player);
             return response()->json(['success' => true]);
         } catch (\RuntimeException $e) {
             return response()->json(['error' => $e->getMessage()], 422);

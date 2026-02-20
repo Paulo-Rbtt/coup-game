@@ -16,6 +16,7 @@ Route::post('/games/{game}/toggle-ready', [LobbyController::class, 'toggleReady'
 Route::post('/games/{game}/leave-lobby', [LobbyController::class, 'leaveLobby']);
 Route::post('/games/{game}/kick', [LobbyController::class, 'kick']);
 Route::post('/games/{game}/rematch', [LobbyController::class, 'rematch']);
+Route::post('/games/{game}/leave-game-over', [LobbyController::class, 'leaveGameOver']);
 Route::get('/games/{game}/state', [LobbyController::class, 'state']);
 
 // ── Game Actions ─────────────────────────────────────

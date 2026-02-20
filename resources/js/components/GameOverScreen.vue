@@ -66,7 +66,7 @@
       </div>
 
       <!-- Action buttons -->
-      <div class="flex flex-col sm:flex-row gap-3 justify-center">
+      <div v-if="!wantsRematch" class="flex flex-col sm:flex-row gap-3 justify-center">
         <button @click="rematchGame"
                 class="py-3 px-8 rounded-xl bg-amber-400 text-gray-900 font-bold text-lg
                        hover:bg-amber-300 transition cursor-pointer">
@@ -77,11 +77,37 @@
                        hover:bg-indigo-500 border border-indigo-500 transition cursor-pointer">
           📄 Baixar PDF
         </button>
-        <button @click="leaveGame"
+        <button @click="leaveAfterGameOver"
                 class="py-3 px-8 rounded-xl bg-gray-700 text-gray-300 font-bold text-lg
                        hover:bg-gray-600 border border-gray-600 transition cursor-pointer">
           Sair
         </button>
+      </div>
+
+      <!-- Waiting for others -->
+      <div v-else class="text-center space-y-4">
+        <div class="bg-amber-400/10 border border-amber-400/30 rounded-xl p-4">
+          <p class="text-amber-400 font-bold text-lg">🔄 Aguardando outros jogadores...</p>
+          <div class="flex flex-wrap justify-center gap-2 mt-3">
+            <span v-for="p in gamePlayersStatus" :key="p.id"
+                  class="px-3 py-1 rounded-full text-xs font-bold"
+                  :class="p.is_ready ? 'bg-green-600/30 text-green-400 border border-green-500/40' : 'bg-gray-700/50 text-gray-400 border border-gray-600'">
+              {{ p.name }} {{ p.is_ready ? '✓' : '…' }}
+            </span>
+          </div>
+        </div>
+        <div class="flex gap-3 justify-center">
+          <button @click="downloadPdf"
+                  class="py-2 px-6 rounded-xl bg-indigo-600 text-white font-bold
+                         hover:bg-indigo-500 border border-indigo-500 transition cursor-pointer">
+            📄 Baixar PDF
+          </button>
+          <button @click="leaveAfterGameOver"
+                  class="py-2 px-6 rounded-xl bg-gray-700 text-gray-300 font-bold
+                         hover:bg-gray-600 border border-gray-600 transition cursor-pointer">
+            Sair
+          </button>
+        </div>
       </div>
     </div>
 
@@ -98,9 +124,18 @@ import { useGame } from '../composables/useGame';
 import { CHARACTERS, ACTIONS } from '../data/characters';
 import ChatPanel from './ChatPanel.vue';
 
-const { state, leaveGame, rematchGame } = useGame();
+const { state, leaveAfterGameOver, rematchGame } = useGame();
 
 const showHistory = ref(false);
+
+const wantsRematch = computed(() => {
+  return state.player?.is_ready ?? false;
+});
+
+const gamePlayersStatus = computed(() => {
+  if (!state.game?.players) return [];
+  return state.game.players.filter(p => !p.is_spectator);
+});
 
 const winner = computed(() => {
   if (!state.game) return null;

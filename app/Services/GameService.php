@@ -1390,51 +1390,132 @@ class GameService
     }
 
     // ══════════════════════════════════════════════════════════════
-    // REMATCH
+    // REMATCH (per-player)
     // ══════════════════════════════════════════════════════════════
 
-    public function rematchGame(Game $game): void
+    public function rematchGame(Game $game, Player $player): void
     {
-        DB::transaction(function () use ($game) {
+        DB::transaction(function () use ($game, $player) {
             $game = Game::lockForUpdate()->find($game->id);
+            $player = Player::find($player->id);
 
             if ($game->phase !== GamePhase::GAME_OVER) {
                 throw new \RuntimeException('A partida ainda não terminou.');
             }
 
-            // Reset all players (including spectators → become regular players)
-            $allPlayers = $game->players()->get();
-            $seatIndex = 0;
-            foreach ($allPlayers as $player) {
-                $player->coins = 2;
-                $player->influences = [];
-                $player->revealed = [];
-                $player->is_alive = true;
-                $player->is_ready = false;
-                $player->is_spectator = false;
-                $player->seat = -($seatIndex + 100); // temp negative to avoid constraint
-                $player->save();
-                $seatIndex++;
-            }
-            // Reassign proper seats
-            foreach ($allPlayers->values() as $i => $player) {
-                $player->seat = $i;
-                $player->save();
+            if (!$player || $player->is_spectator) {
+                throw new \RuntimeException('Ação inválida.');
             }
 
-            // Reset game to lobby
-            $game->phase = GamePhase::LOBBY;
-            $game->deck = [];
-            $game->treasury = 0;
-            $game->current_player_index = 0;
-            $game->turn_number = 0;
-            $game->turn_state = null;
-            $game->event_log = [];
-            $game->winner_id = null;
-            $game->save();
+            // Mark this player as wanting rematch
+            $player->is_ready = true;
+            $player->save();
 
-            $this->broadcastAll($game->fresh('players'));
+            // Check if all remaining game players (non-spectators) are ready
+            $gamePlayers = $game->gamePlayers()->get();
+            $allReady = $gamePlayers->every(fn($p) => $p->is_ready);
+
+            if ($allReady) {
+                $this->transitionToLobby($game);
+            } else {
+                $this->broadcastAll($game->fresh('players'));
+            }
         });
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // LEAVE AFTER GAME OVER
+    // ══════════════════════════════════════════════════════════════
+
+    public function leaveAfterGameOver(Game $game, Player $player): void
+    {
+        DB::transaction(function () use ($game, $player) {
+            $game = Game::lockForUpdate()->find($game->id);
+            $player = Player::find($player->id);
+
+            if (!$player) {
+                return;
+            }
+
+            if ($game->phase !== GamePhase::GAME_OVER) {
+                throw new \RuntimeException('O jogo não está na tela de fim de jogo.');
+            }
+
+            $wasHost = $player->is_host;
+            $player->delete();
+
+            // Get remaining game players (non-spectators)
+            $remaining = $game->gamePlayers()->orderBy('seat')->get();
+
+            // If host left, reassign to the next game player
+            if ($wasHost && $remaining->count() > 0) {
+                $newHost = $remaining->first();
+                $newHost->is_host = true;
+                $newHost->save();
+            }
+
+            // If no game players remain, clean up
+            if ($remaining->count() === 0) {
+                $game->spectators()->delete();
+                $game->delete();
+                return;
+            }
+
+            // Re-seat remaining game players
+            foreach ($remaining->values() as $idx => $p) {
+                $p->seat = $idx;
+                $p->save();
+            }
+
+            // Check if all remaining game players are now ready → transition to lobby
+            $allReady = $remaining->fresh()->every(fn($p) => $p->is_ready);
+
+            if ($allReady) {
+                $this->transitionToLobby($game);
+            } else {
+                $this->broadcastAll($game->fresh('players'));
+            }
+        });
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // TRANSITION TO LOBBY (from game over, when all remaining want rematch)
+    // ══════════════════════════════════════════════════════════════
+
+    private function transitionToLobby(Game $game): void
+    {
+        // Reset all players (including spectators → become regular players)
+        $allPlayers = $game->players()->get();
+        $seatIndex = 0;
+        foreach ($allPlayers as $player) {
+            $player->coins = 2;
+            $player->influences = [];
+            $player->revealed = [];
+            $player->is_alive = true;
+            $player->is_ready = false;
+            $player->is_spectator = false;
+            $player->seat = -($seatIndex + 100); // temp negative to avoid constraint
+            $player->save();
+            $seatIndex++;
+        }
+        // Reassign proper seats
+        foreach ($allPlayers->values() as $i => $player) {
+            $player->seat = $i;
+            $player->save();
+        }
+
+        // Reset game to lobby
+        $game->phase = GamePhase::LOBBY;
+        $game->deck = [];
+        $game->treasury = 0;
+        $game->current_player_index = 0;
+        $game->turn_number = 0;
+        $game->turn_state = null;
+        $game->event_log = [];
+        $game->winner_id = null;
+        $game->save();
+
+        $this->broadcastAll($game->fresh('players'));
     }
 
     // ══════════════════════════════════════════════════════════════

@@ -243,6 +243,16 @@ export function useGame() {
         leaveGame();
     }
 
+    async function leaveAfterGameOver() {
+        if (!state.game || !state.player) return;
+        try {
+            await api.post(`/games/${state.game.id}/leave-game-over`);
+        } catch {
+            // Even if API fails, leave locally
+        }
+        leaveGame();
+    }
+
     async function rematchGame() {
         state.error = null;
         try {
@@ -311,6 +321,7 @@ export function useGame() {
         leaveGame,
         leaveLobby,
         abandonGame,
+        leaveAfterGameOver,
         rematchGame,
         isMyTurn,
         myInfluences,
