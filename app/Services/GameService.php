@@ -770,9 +770,20 @@ class GameService
         $player = Player::find($playerId);
         if (!$player || !$player->is_alive) {
             // Player already dead, skip and continue
+            // Still save the reason so continueAfterInfluenceLoss knows what to do
+            $ts = $game->turn_state;
+            $ts['influence_loss_reason'] = $reason;
+            $game->turn_state = $ts;
+            $game->save();
             $this->continueAfterInfluenceLoss($game);
             return;
         }
+
+        // Always save reason to turn_state so continueAfterInfluenceLoss can read it
+        $ts = $game->turn_state;
+        $ts['awaiting_influence_loss_from'] = $playerId;
+        $ts['influence_loss_reason'] = $reason;
+        $game->turn_state = $ts;
 
         if ($player->influenceCount() === 1) {
             // Only 1 card: auto-reveal
@@ -796,13 +807,10 @@ class GameService
                 ]);
             }
 
+            $game->save();
             $this->continueAfterInfluenceLoss($game);
         } else {
             // Player must choose which card to lose
-            $ts = $game->turn_state;
-            $ts['awaiting_influence_loss_from'] = $playerId;
-            $ts['influence_loss_reason'] = $reason;
-            $game->turn_state = $ts;
             $game->phase = GamePhase::AWAITING_INFLUENCE_LOSS;
             $game->save();
 
