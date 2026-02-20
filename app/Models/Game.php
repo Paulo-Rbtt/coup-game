@@ -47,9 +47,25 @@ class Game extends Model
         return $this->hasMany(Player::class)->orderBy('seat');
     }
 
+    /**
+     * Non-spectator players only (actual game participants).
+     */
+    public function gamePlayers(): HasMany
+    {
+        return $this->hasMany(Player::class)->where('is_spectator', false)->orderBy('seat');
+    }
+
     public function alivePlayers(): HasMany
     {
-        return $this->hasMany(Player::class)->where('is_alive', true)->orderBy('seat');
+        return $this->hasMany(Player::class)->where('is_alive', true)->where('is_spectator', false)->orderBy('seat');
+    }
+
+    /**
+     * Spectators only.
+     */
+    public function spectators(): HasMany
+    {
+        return $this->hasMany(Player::class)->where('is_spectator', true);
     }
 
     public function winner()

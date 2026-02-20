@@ -2,7 +2,7 @@
   <!-- Floating chat toggle (when collapsed) -->
   <button v-if="!isOpen"
           @click="openChat"
-          class="fixed bottom-4 right-4 z-40 w-12 h-12 rounded-full bg-amber-500 hover:bg-amber-400 text-gray-900 shadow-lg flex items-center justify-center transition-all duration-200 cursor-pointer"
+          class="fixed bottom-4 right-4 z-[9995] w-12 h-12 rounded-full bg-amber-500 hover:bg-amber-400 text-gray-900 shadow-lg flex items-center justify-center transition-all duration-200 cursor-pointer"
           :class="{ 'animate-bounce': hasUnread }">
     <span class="text-lg">💬</span>
     <span v-if="unreadCount > 0"
@@ -14,7 +14,7 @@
   <!-- Chat panel -->
   <Transition name="chat-slide">
     <div v-if="isOpen"
-         class="fixed bottom-4 right-4 z-40 w-96 max-h-[520px] flex flex-col bg-gray-900/95 backdrop-blur-lg border border-gray-700 rounded-xl shadow-2xl overflow-hidden">
+         class="fixed bottom-4 right-4 z-[9995] w-96 max-h-[520px] flex flex-col bg-gray-900/95 backdrop-blur-lg border border-gray-700 rounded-xl shadow-2xl overflow-hidden">
 
       <!-- Header -->
       <div class="flex items-center justify-between px-3 py-2 bg-gray-800/80 border-b border-gray-700 shrink-0">

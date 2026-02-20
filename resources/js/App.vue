@@ -17,7 +17,8 @@
     <!-- Screens -->
     <LobbyScreen v-if="!state.game || state.game.phase === 'lobby'" />
     <GameBoard v-else-if="showBoard" />
-    <GameOverScreen v-else />
+    <GameOverScreen v-else-if="!state.player?.is_spectator" />
+    <GameBoard v-else />
   </div>
 </template>
 

@@ -23,6 +23,11 @@
 
       <HelpRules :visible="showHelp" @close="showHelp = false" />
 
+      <!-- Chat in lobby -->
+      <ChatPanel v-if="state.game?.id && state.player?.id && state.game?.phase === 'lobby'"
+                 :gameId="state.game.id"
+                 :myId="state.player.id" />
+
       <!-- Ranking overlay -->
       <Transition name="fade">
         <div v-if="showRanking" class="fixed inset-0 z-40 bg-black/60 flex items-center justify-center p-4" @click.self="showRanking = false">
@@ -188,6 +193,7 @@
                 </div>
                 <div class="text-[10px] text-gray-500 mt-0.5 truncate">
                   👥 {{ room.players.join(', ') }} ({{ room.player_count }}/{{ room.max_players }})
+                  <span v-if="room.spectator_count"> · 👁 {{ room.spectator_count }}</span>
                 </div>
               </div>
               <button v-if="room.is_lobby && room.player_count < room.max_players"
@@ -198,8 +204,15 @@
                       :class="playerName.trim() ? 'bg-green-600 hover:bg-green-500 text-white' : 'bg-gray-600 text-gray-400'">
                 Entrar
               </button>
-              <span v-else-if="room.is_lobby" class="ml-2 text-[10px] text-gray-500">Cheia</span>
-              <span v-else class="ml-2 text-[10px] text-gray-500">Turno {{ room.turn_number }}</span>
+              <button v-else-if="!room.is_lobby"
+                      @click="joinRoom(room.code)"
+                      :disabled="!playerName.trim()"
+                      class="ml-2 px-3 py-1.5 rounded-lg text-xs font-bold transition shrink-0 cursor-pointer
+                             disabled:opacity-40 disabled:cursor-not-allowed"
+                      :class="playerName.trim() ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-gray-600 text-gray-400'">
+                👁 Assistir
+              </button>
+              <span v-else class="ml-2 text-[10px] text-gray-500">Cheia</span>
             </div>
           </div>
           <p v-if="openRooms.length > 0 && !playerName.trim()" class="text-[10px] text-amber-400/70 mt-2 text-center">
@@ -218,6 +231,7 @@ import api from '../api';
 import HelpRules from './HelpRules.vue';
 import RankingScreen from './RankingScreen.vue';
 import HistoryScreen from './HistoryScreen.vue';
+import ChatPanel from './ChatPanel.vue';
 
 const { state, createGame, joinGame, startGame, toggleReady, leaveLobby, isHost } = useGame();
 

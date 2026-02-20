@@ -2,13 +2,13 @@
   <Teleport to="body">
     <Transition name="overlay-fade">
       <div v-if="currentAnimation"
-           class="fixed inset-0 z-[9999] flex items-center justify-center pointer-events-none"
+           class="fixed inset-0 z-[9990] flex items-center justify-center"
            @click.self="skip">
-        <!-- Backdrop -->
+        <!-- Backdrop (blocks all clicks behind) -->
         <div class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
 
         <!-- Animation content -->
-        <div class="relative flex flex-col items-center gap-3 pointer-events-auto animate-pop-in">
+        <div class="relative flex flex-col items-center gap-3 animate-pop-in">
           <!-- SVG -->
           <div class="w-40 h-40 sm:w-52 sm:h-52">
             <component :is="currentAnimation.component" svg-class="w-full h-full" />

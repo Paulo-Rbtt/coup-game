@@ -8,6 +8,7 @@
         <span class="text-[10px] sm:text-xs text-gray-500 lg:hidden">T{{ state.game.turn_number }}</span>
       </div>
       <div class="flex items-center gap-2 sm:gap-4">
+        <span v-if="isSpectator" class="text-[10px] sm:text-xs px-2 py-0.5 rounded-full bg-purple-900/60 border border-purple-600 text-purple-300 font-bold">👁 Espectador</span>
         <span class="text-xs sm:text-sm text-gray-400 hidden lg:inline">Turno {{ state.game.turn_number }}</span>
         <div class="flex items-center gap-1 text-amber-400">
           <CoinIcon class="w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -16,7 +17,7 @@
         <span class="text-[10px] sm:text-xs text-gray-400">🃏 {{ state.game.deck_count }}</span>
         <button @click="confirmLeave"
                 class="px-2 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs rounded-lg bg-red-900/60 hover:bg-red-800 text-red-300 border border-red-700 transition-colors cursor-pointer">
-          Sair
+          {{ isSpectator ? 'Sair' : 'Sair' }}
         </button>
         <button @click="showHelp = true"
                 class="px-2 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs rounded-lg bg-gray-700/60 hover:bg-gray-600 text-gray-400 hover:text-amber-400 border border-gray-600 transition-colors cursor-pointer">
@@ -33,7 +34,7 @@
                :myId="state.player.id" />
 
     <!-- Nudge alert (fixed on mobile, inline on desktop) -->
-    <Transition name="nudge-slide">
+    <Transition v-if="!isSpectator" name="nudge-slide">
       <div v-if="showNudge"
            class="fixed top-14 left-3 right-3 z-20 lg:relative lg:top-auto lg:left-auto lg:right-auto lg:mx-4 lg:mt-3
                   px-3 py-2 rounded-xl border-2 flex items-center justify-between gap-2 animate-pulse-slow"
@@ -93,8 +94,8 @@
         </div>
       </div>
 
-      <!-- ── Desktop sidebar (only visible on lg+) ── -->
-      <div class="hidden lg:flex lg:flex-col lg:w-80 lg:order-2 lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto space-y-3">
+      <!-- ── Desktop sidebar (only visible on lg+, hidden for spectators) ── -->
+      <div v-if="!isSpectator" class="hidden lg:flex lg:flex-col lg:w-80 lg:order-2 lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto space-y-3">
         <!-- My info card (desktop) -->
         <div class="bg-gray-800/60 backdrop-blur rounded-xl p-4 border border-gray-700">
           <div class="flex items-center justify-between mb-3">
@@ -149,8 +150,8 @@
       </div>
     </div>
 
-    <!-- ═══════ MOBILE FLOATING BOTTOM BAR ═══════ -->
-    <div class="lg:hidden fixed bottom-0 left-0 right-0 z-20">
+    <!-- ═══════ MOBILE FLOATING BOTTOM BAR (hidden for spectators) ═══════ -->
+    <div v-if="!isSpectator" class="lg:hidden fixed bottom-0 left-0 right-0 z-20">
       <!-- Action/reaction panels (above cards) -->
       <div v-if="hasBottomPanel" class="px-3 pb-1">
         <ActionPanel v-if="isMyTurn && state.game.phase === 'action_selection'"
@@ -247,6 +248,7 @@ const {
   aliveOpponents,
   mustCoup,
   hasPassed,
+  isSpectator,
   declareAction,
   pass,
   challengeAction,
@@ -474,6 +476,10 @@ const forceReveal = computed(() => {
 });
 
 function confirmLeave() {
+  if (isSpectator.value) {
+    abandonGame();
+    return;
+  }
   if (confirm('Tem certeza que deseja sair? Você será eliminado da partida.')) {
     abandonGame();
   }

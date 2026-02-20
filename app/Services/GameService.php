@@ -55,19 +55,31 @@ class GameService
         return DB::transaction(function () use ($code, $playerName) {
             $game = Game::where('code', strtoupper($code))->lockForUpdate()->firstOrFail();
 
-            if ($game->phase !== GamePhase::LOBBY) {
-                throw new \RuntimeException('A partida já começou.');
+            // If game is in lobby, join as regular player
+            if ($game->phase === GamePhase::LOBBY) {
+                if ($game->gamePlayers()->count() >= $game->max_players) {
+                    throw new \RuntimeException('Sala cheia.');
+                }
+
+                $player = $this->addPlayer($game, $playerName, false);
+
+                $this->touchActivity($game, $player);
+                $this->broadcastPublic($game->fresh('players'));
+
+                return ['game' => $game->fresh('players'), 'player' => $player];
             }
-            if ($game->players()->count() >= $game->max_players) {
-                throw new \RuntimeException('Sala cheia.');
+
+            // If game is in progress or game over, join as spectator
+            if ($game->phase !== GamePhase::GAME_OVER) {
+                $player = $this->addSpectator($game, $playerName);
+
+                $this->touchActivity($game, $player);
+                $this->broadcastPublic($game->fresh('players'));
+
+                return ['game' => $game->fresh('players'), 'player' => $player];
             }
 
-            $player = $this->addPlayer($game, $playerName, false);
-
-            $this->touchActivity($game, $player);
-            $this->broadcastPublic($game->fresh('players'));
-
-            return ['game' => $game->fresh('players'), 'player' => $player];
+            throw new \RuntimeException('A partida já terminou.');
         });
     }
 
@@ -82,7 +94,7 @@ class GameService
 
     private function addPlayer(Game $game, string $name, bool $isHost): Player
     {
-        $seat = $game->players()->count();
+        $seat = $game->gamePlayers()->count();
         return Player::create([
             'game_id' => $game->id,
             'name' => $name,
@@ -92,6 +104,31 @@ class GameService
             'influences' => [],
             'revealed' => [],
             'is_host' => $isHost,
+            'is_spectator' => false,
+        ]);
+    }
+
+    /**
+     * Add a spectator to an in-progress game.
+     * Spectators use negative seats to avoid unique constraint conflicts.
+     */
+    private function addSpectator(Game $game, string $name): Player
+    {
+        // Use negative seat numbers for spectators to avoid unique constraint with game players
+        $minSeat = $game->spectators()->min('seat') ?? 0;
+        $spectatorSeat = min($minSeat, 0) - 1;
+
+        return Player::create([
+            'game_id' => $game->id,
+            'name' => $name,
+            'token' => bin2hex(random_bytes(32)),
+            'seat' => $spectatorSeat,
+            'coins' => 0,
+            'influences' => [],
+            'revealed' => [],
+            'is_host' => false,
+            'is_spectator' => true,
+            'is_alive' => false,
         ]);
     }
 
@@ -105,14 +142,20 @@ class GameService
             $game = Game::lockForUpdate()->find($game->id);
 
             if ($game->phase !== GamePhase::LOBBY) {
+                // If spectator in an active game, just remove them
+                if ($player->is_spectator) {
+                    $player->delete();
+                    $this->broadcastPublic($game->fresh('players'));
+                    return;
+                }
                 throw new \RuntimeException('Só pode sair do lobby antes do jogo iniciar.');
             }
 
             $wasHost = $player->is_host;
             $player->delete();
 
-            // Re-seat remaining players
-            $remaining = $game->players()->orderBy('seat')->get();
+            // Re-seat remaining game players (not spectators)
+            $remaining = $game->gamePlayers()->orderBy('seat')->get();
             foreach ($remaining->values() as $idx => $p) {
                 $p->seat = $idx;
                 $p->save();
@@ -125,8 +168,9 @@ class GameService
                 $newHost->save();
             }
 
-            // If room is empty, delete in
+            // If room is empty (no game players), delete
             if ($remaining->count() === 0) {
+                $game->spectators()->delete();
                 $game->delete();
                 return;
             }
@@ -169,15 +213,15 @@ class GameService
             if (!$host->is_host) {
                 throw new \RuntimeException('Apenas o anfitrião pode iniciar.');
             }
-            if ($game->players()->count() < $game->min_players) {
+            if ($game->gamePlayers()->count() < $game->min_players) {
                 throw new \RuntimeException("Mínimo {$game->min_players} jogadores.");
             }
             if ($game->phase !== GamePhase::LOBBY) {
                 throw new \RuntimeException('Partida já iniciada.');
             }
 
-            // All players must be ready
-            $notReady = $game->players()->where('is_ready', false)->count();
+            // All non-spectator players must be ready
+            $notReady = $game->gamePlayers()->where('is_ready', false)->count();
             if ($notReady > 0) {
                 throw new \RuntimeException('Todos os jogadores precisam estar prontos.');
             }
@@ -185,11 +229,11 @@ class GameService
             // Build deck: 15 cards (3 × 5 characters)
             $deck = Game::buildDeck();
 
-            // Randomize seat order (who goes first)
+            // Randomize seat order (who goes first) — only game players, not spectators
             // First set all seats to negative temp values to avoid unique constraint violations
-            $players = $game->players()->orderBy('seat')->get();
+            $players = $game->gamePlayers()->orderBy('seat')->get();
             foreach ($players as $i => $player) {
-                $player->seat = -($i + 1);
+                $player->seat = -($i + 100);
                 $player->save();
             }
             // Now assign the shuffled seats
@@ -200,7 +244,7 @@ class GameService
                 $player->save();
             }
             // Re-fetch in new seat order
-            $players = $game->players()->orderBy('seat')->get();
+            $players = $game->gamePlayers()->orderBy('seat')->get();
 
             // Deal 2 cards to each player
             foreach ($players as $player) {
@@ -1131,6 +1175,13 @@ class GameService
             $game->load('players');
             $player = Player::find($player->id);
 
+            // Spectators can simply leave
+            if ($player && $player->is_spectator) {
+                $player->delete();
+                $this->broadcastGameState($game);
+                return;
+            }
+
             if (!$player || !$player->is_alive) {
                 throw new \RuntimeException('Jogador já eliminado.');
             }
@@ -1299,13 +1350,23 @@ class GameService
                 throw new \RuntimeException('A partida ainda não terminou.');
             }
 
-            // Reset all players
-            foreach ($game->players as $player) {
+            // Reset all players (including spectators → become regular players)
+            $allPlayers = $game->players()->get();
+            $seatIndex = 0;
+            foreach ($allPlayers as $player) {
                 $player->coins = 2;
                 $player->influences = [];
                 $player->revealed = [];
                 $player->is_alive = true;
                 $player->is_ready = false;
+                $player->is_spectator = false;
+                $player->seat = -($seatIndex + 100); // temp negative to avoid constraint
+                $player->save();
+                $seatIndex++;
+            }
+            // Reassign proper seats
+            foreach ($allPlayers->values() as $i => $player) {
+                $player->seat = $i;
                 $player->save();
             }
 
@@ -1355,7 +1416,7 @@ class GameService
                 return;
             }
 
-            $players = $game->players()->orderBy('seat')->get();
+            $players = $game->gamePlayers()->orderBy('seat')->get();
             $totalPlayers = $players->count();
             $totalTurns = $game->turn_number;
             $fullLog = $game->event_log ?? [];

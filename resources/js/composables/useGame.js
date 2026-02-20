@@ -258,8 +258,16 @@ export function useGame() {
 
     const phase = computed(() => state.game?.phase || 'lobby');
 
+    const isSpectator = computed(() => {
+        return state.player?.is_spectator ?? false;
+    });
+
     const otherPlayers = computed(() => {
         if (!state.game?.players || !state.player) return [];
+        // Spectators see all game players (non-spectators)
+        if (state.player.is_spectator) {
+            return state.game.players.filter(p => !p.is_spectator);
+        }
         return state.game.players.filter(p => p.id !== state.player.id);
     });
 
@@ -298,6 +306,7 @@ export function useGame() {
         isMyTurn,
         myInfluences,
         isHost,
+        isSpectator,
         phase,
         otherPlayers,
         aliveOpponents,
