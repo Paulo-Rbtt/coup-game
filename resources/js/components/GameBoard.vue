@@ -110,6 +110,14 @@
           <div class="flex items-center justify-between mb-3">
             <h3 class="font-bold text-amber-400">{{ state.player?.name }}</h3>
             <div class="flex items-center gap-2">
+              <button @click="cardsVisible = !cardsVisible"
+                      class="w-7 h-7 flex items-center justify-center rounded-md text-sm border cursor-pointer transition"
+                      :class="cardsVisible
+                        ? 'bg-amber-400/20 border-amber-400/50 text-amber-300'
+                        : 'bg-gray-800 border-gray-600 text-gray-400 hover:text-amber-300'"
+                      :title="cardsVisible ? 'Esconder cartas' : 'Mostrar cartas'">
+                {{ cardsVisible ? '🙈' : '👁' }}
+              </button>
               <div class="flex items-center gap-1">
                 <CoinIcon class="w-5 h-5 text-amber-400" />
                 <span class="text-lg font-bold text-amber-400">{{ state.player?.coins }}</span>

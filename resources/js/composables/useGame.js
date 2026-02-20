@@ -36,8 +36,11 @@ function listenToGame() {
             .listen('.private.updated', (e) => {
                 // Player was kicked from the lobby
                 if (e.state?.kicked) {
+                    cleanupChannels();
+                    clearSession();
+                    state.game = null;
+                    state.player = null;
                     state.error = 'Você foi expulso da sala pelo anfitrião.';
-                    leaveGame();
                     return;
                 }
                 // Merge private state into player
