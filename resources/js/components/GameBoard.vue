@@ -15,6 +15,15 @@
           <span class="text-xs sm:text-sm font-bold">{{ state.game.treasury }}</span>
         </div>
         <span class="text-[10px] sm:text-xs text-gray-400">🃏 {{ state.game.deck_count }}</span>
+        <span v-if="turnCountdown !== null"
+              class="text-[10px] sm:text-xs font-mono font-bold tabular-nums px-1.5 py-0.5 rounded-md border"
+              :class="turnCountdown <= 10
+                ? 'text-red-400 border-red-700 bg-red-900/40 animate-pulse'
+                : turnCountdown <= 20
+                  ? 'text-amber-400 border-amber-700 bg-amber-900/30'
+                  : 'text-gray-400 border-gray-600 bg-gray-800/40'">
+          ⏱ {{ turnCountdown }}s
+        </span>
         <button @click="confirmLeave"
                 class="px-2 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs rounded-lg bg-red-900/60 hover:bg-red-800 text-red-300 border border-red-700 transition-colors cursor-pointer">
           {{ isSpectator ? 'Sair' : 'Sair' }}
@@ -262,6 +271,25 @@ const {
 const cardsVisible = ref(false);
 const showHelp = ref(false);
 const logExpanded = ref(false);
+const serverNow = ref(Date.now());
+
+// Countdown timer for turn deadline
+let countdownInterval = null;
+const turnCountdown = computed(() => {
+  if (!state.game?.turn_deadline) return null;
+  const deadline = new Date(state.game.turn_deadline).getTime();
+  const remaining = Math.max(0, Math.ceil((deadline - serverNow.value) / 1000));
+  return remaining;
+});
+
+onMounted(() => {
+  countdownInterval = setInterval(() => {
+    serverNow.value = Date.now();
+  }, 1000);
+});
+onUnmounted(() => {
+  if (countdownInterval) clearInterval(countdownInterval);
+});
 
 // Whether a floating action panel is currently shown (affects bottom padding)
 const hasBottomPanel = computed(() => {

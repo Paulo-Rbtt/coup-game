@@ -10,3 +10,6 @@ Artisan::command('inspire', function () {
 
 // Clean inactive games every minute
 Schedule::command('games:clean-inactive')->everyMinute();
+
+// Check turn timeouts every 10 seconds
+Schedule::command('games:check-timeouts')->everyTenSeconds();

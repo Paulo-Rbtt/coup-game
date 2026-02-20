@@ -23,6 +23,7 @@ class Game extends Model
         'max_players',
         'last_activity_at',
         'started_at',
+        'turn_deadline',
     ];
 
     protected $casts = [
@@ -36,7 +37,30 @@ class Game extends Model
         'winner_id' => 'integer',
         'last_activity_at' => 'datetime',
         'started_at' => 'datetime',
+        'turn_deadline' => 'datetime',
     ];
+
+    private const TURN_TIMEOUT_SECONDS = 60;
+
+    private const PHASES_WITH_DEADLINE = [
+        GamePhase::ACTION_SELECTION,
+        GamePhase::AWAITING_CHALLENGE_ACTION,
+        GamePhase::AWAITING_BLOCK,
+        GamePhase::AWAITING_CHALLENGE_BLOCK,
+        GamePhase::AWAITING_INFLUENCE_LOSS,
+        GamePhase::AWAITING_EXCHANGE_RETURN,
+    ];
+
+    protected static function booted(): void
+    {
+        static::saving(function (Game $game) {
+            if ($game->isDirty('phase') && in_array($game->phase, self::PHASES_WITH_DEADLINE)) {
+                $game->turn_deadline = now()->addSeconds(self::TURN_TIMEOUT_SECONDS);
+            } elseif ($game->isDirty('phase')) {
+                $game->turn_deadline = null;
+            }
+        });
+    }
 
     // ──────────────────────────────────────────
     // Relationships
@@ -210,6 +234,7 @@ class Game extends Model
             'event_log' => $this->event_log ?? [],
             'winner_id' => $this->winner_id,
             'deck_count' => count($this->deck ?? []),
+            'turn_deadline' => $this->turn_deadline?->toISOString(),
             'players' => $this->players->map(fn(Player $p) => $p->publicState())->toArray(),
         ];
     }
