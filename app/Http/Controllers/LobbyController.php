@@ -137,6 +137,25 @@ class LobbyController extends Controller
     }
 
     /**
+     * POST /api/games/{game}/kick — Host kicks a player from the lobby.
+     */
+    public function kick(Request $request, Game $game): JsonResponse
+    {
+        $request->validate([
+            'player_id' => 'required|integer',
+        ]);
+
+        $host = $this->authenticatePlayer($request, $game);
+
+        try {
+            $this->gameService->kickPlayer($game, $host, $request->player_id);
+            return response()->json(['success' => true]);
+        } catch (\RuntimeException $e) {
+            return response()->json(['error' => $e->getMessage()], 422);
+        }
+    }
+
+    /**
      * POST /api/games/{game}/leave-lobby — Leave the lobby before game starts.
      */
     public function leaveLobby(Request $request, Game $game): JsonResponse

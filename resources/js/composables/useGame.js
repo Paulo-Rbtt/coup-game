@@ -34,6 +34,12 @@ function listenToGame() {
         const playerChannel = `player.${state.player.token}`;
         window.Echo.channel(playerChannel)
             .listen('.private.updated', (e) => {
+                // Player was kicked from the lobby
+                if (e.state?.kicked) {
+                    state.error = 'Você foi expulso da sala pelo anfitrião.';
+                    leaveGame();
+                    return;
+                }
                 // Merge private state into player
                 state.player = { ...state.player, ...e.state };
             });

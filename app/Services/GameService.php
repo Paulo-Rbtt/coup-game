@@ -136,6 +136,44 @@ class GameService
     // LEAVE LOBBY (before game starts)
     // ══════════════════════════════════════════════════════════════
 
+    public function kickPlayer(Game $game, Player $host, int $targetPlayerId): void
+    {
+        DB::transaction(function () use ($game, $host, $targetPlayerId) {
+            $game = Game::lockForUpdate()->find($game->id);
+
+            if ($game->phase !== GamePhase::LOBBY) {
+                throw new \RuntimeException('Só pode expulsar jogadores no lobby.');
+            }
+
+            if (!$host->is_host) {
+                throw new \RuntimeException('Apenas o anfitrião pode expulsar jogadores.');
+            }
+
+            $target = Player::where('id', $targetPlayerId)->where('game_id', $game->id)->first();
+            if (!$target) {
+                throw new \RuntimeException('Jogador não encontrado.');
+            }
+
+            if ($target->id === $host->id) {
+                throw new \RuntimeException('Você não pode se expulsar.');
+            }
+
+            // Notify the kicked player via their private channel before deleting
+            broadcast(new PrivateStateUpdated($game, $target, ['kicked' => true]));
+
+            $target->delete();
+
+            // Re-seat remaining game players
+            $remaining = $game->gamePlayers()->orderBy('seat')->get();
+            foreach ($remaining->values() as $idx => $p) {
+                $p->seat = $idx;
+                $p->save();
+            }
+
+            $this->broadcastPublic($game->fresh('players'));
+        });
+    }
+
     public function leaveLobby(Game $game, Player $player): void
     {
         DB::transaction(function () use ($game, $player) {

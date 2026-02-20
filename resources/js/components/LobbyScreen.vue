@@ -66,8 +66,17 @@
             <span class="font-medium">{{ player.name }}</span>
             <span v-if="player.is_host" class="text-xs text-amber-400">Anfitrião</span>
             <span v-if="player.id === state.player?.id" class="text-xs text-green-400">Você</span>
-            <span class="ml-auto text-xs font-bold px-2 py-0.5 rounded-full"
-                  :class="player.is_ready ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-gray-600/50 text-gray-500 border border-gray-600'">
+            <button v-if="isHost && player.id !== state.player?.id"
+                    @click="kickPlayer(player.id, player.name)"
+                    class="ml-auto px-2 py-0.5 rounded-lg text-[10px] font-bold bg-red-900/60 hover:bg-red-800 text-red-300 border border-red-700 transition cursor-pointer"
+                    title="Expulsar jogador">
+              ✕
+            </button>
+            <span class="text-xs font-bold px-2 py-0.5 rounded-full"
+                  :class="[
+                    (!isHost || player.id === state.player?.id) ? 'ml-auto' : '',
+                    player.is_ready ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-gray-600/50 text-gray-500 border border-gray-600'
+                  ]">
               {{ player.is_ready ? '✓ Pronto' : '⏳ Aguardando' }}
             </span>
           </div>
@@ -292,6 +301,15 @@ async function joinRoom(code) {
     return;
   }
   await joinGame(code, playerName.value.trim());
+}
+
+async function kickPlayer(playerId, playerName) {
+  if (!confirm(`Expulsar ${playerName} da sala?`)) return;
+  try {
+    await api.post(`/games/${state.game.id}/kick`, { player_id: playerId });
+  } catch (e) {
+    state.error = e.response?.data?.error || 'Erro ao expulsar jogador.';
+  }
 }
 </script>
 

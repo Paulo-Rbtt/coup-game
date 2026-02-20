@@ -14,6 +14,7 @@ Route::get('/rooms', [LobbyController::class, 'listRooms']);
 Route::post('/games/{game}/start', [LobbyController::class, 'start']);
 Route::post('/games/{game}/toggle-ready', [LobbyController::class, 'toggleReady']);
 Route::post('/games/{game}/leave-lobby', [LobbyController::class, 'leaveLobby']);
+Route::post('/games/{game}/kick', [LobbyController::class, 'kick']);
 Route::post('/games/{game}/rematch', [LobbyController::class, 'rematch']);
 Route::get('/games/{game}/state', [LobbyController::class, 'state']);
 
