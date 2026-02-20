@@ -186,7 +186,13 @@ class GameService
             $deck = Game::buildDeck();
 
             // Randomize seat order (who goes first)
+            // First set all seats to negative temp values to avoid unique constraint violations
             $players = $game->players()->orderBy('seat')->get();
+            foreach ($players as $i => $player) {
+                $player->seat = -($i + 1);
+                $player->save();
+            }
+            // Now assign the shuffled seats
             $seats = range(0, $players->count() - 1);
             shuffle($seats);
             foreach ($players as $i => $player) {
