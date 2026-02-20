@@ -28,30 +28,17 @@ class RankingController extends Controller
                 ->orderBy('avg_placement')
                 ->orderByDesc('games_played')
                 ->limit(100)
-                ->get();
-
-            // For each player, get their winning cards (influences from winning games)
-            $rankings = $rankings->map(function ($rank) {
-                $winningCards = GameResult::where('player_name', $rank->player_name)
-                    ->where('is_winner', true)
-                    ->pluck('influences')
-                    ->flatten()
-                    ->filter()
-                    ->countBy()
-                    ->sortDesc()
-                    ->toArray();
-
-                return [
-                    'player_name' => $rank->player_name,
-                    'games_played' => (int) $rank->games_played,
-                    'wins' => (int) $rank->wins,
-                    'win_rate' => $rank->games_played > 0
-                        ? round(($rank->wins / $rank->games_played) * 100, 1)
-                        : 0,
-                    'avg_placement' => (float) $rank->avg_placement,
-                    'winning_cards' => $winningCards,
-                ];
-            });
+                ->get()
+                ->map(function ($rank) {
+                    return [
+                        'player_name' => $rank->player_name,
+                        'games_played' => (int) $rank->games_played,
+                        'wins' => (int) $rank->wins,
+                        'win_rate' => $rank->games_played > 0
+                            ? round(($rank->wins / $rank->games_played) * 100, 1)
+                            : 0,
+                    ];
+                });
 
             return response()->json($rankings);
         } catch (\Throwable $e) {
@@ -68,62 +55,91 @@ class RankingController extends Controller
         $perPage = min($request->query('per_page', 20), 50);
 
         try {
-            $games = Game::where('phase', GamePhase::GAME_OVER)
-                ->orderByDesc('updated_at')
-                ->with(['results' => function ($q) {
-                    $q->orderBy('placement');
-                }, 'players'])
+            // Query from game_results (survives rematch, which resets game phase to lobby)
+            $paginatedIds = GameResult::select('game_id')
+                ->groupBy('game_id')
+                ->orderByDesc(DB::raw('MAX(created_at)'))
                 ->paginate($perPage);
+
+            $gameIds = $paginatedIds->pluck('game_id');
+
+            // Load results and games for these IDs
+            $allResults = GameResult::whereIn('game_id', $gameIds)
+                ->orderBy('placement')
+                ->get()
+                ->groupBy('game_id');
+
+            $games = Game::whereIn('id', $gameIds)->get()->keyBy('id');
+
+            $data = $paginatedIds->getCollection()->map(function ($row) use ($allResults, $games) {
+                $gameId = $row->game_id;
+                $results = $allResults->get($gameId, collect());
+                $game = $games->get($gameId);
+                $winner = $results->firstWhere('is_winner', true);
+
+                return [
+                    'id' => $gameId,
+                    'code' => $game?->code ?? '???',
+                    'finished_at' => $winner?->created_at?->toISOString() ?? $game?->updated_at?->toISOString(),
+                    'total_turns' => $winner?->total_turns ?? $game?->turn_number ?? 0,
+                    'players' => $results->map(function ($r) {
+                        return [
+                            'player_name' => $r->player_name,
+                            'placement' => $r->placement,
+                            'is_winner' => $r->is_winner,
+                            'is_alive' => $r->is_alive,
+                            'coins' => $r->coins,
+                            'influences' => $r->influences,
+                            'revealed' => $r->revealed,
+                        ];
+                    })->values(),
+                ];
+            });
+
+            return response()->json([
+                'data' => $data,
+                'total' => $paginatedIds->total(),
+                'per_page' => $paginatedIds->perPage(),
+                'current_page' => $paginatedIds->currentPage(),
+                'last_page' => $paginatedIds->lastPage(),
+            ]);
         } catch (\Throwable $e) {
-            // If game_results table doesn't exist, fall back to games + players
+            // Fallback: query games with phase game_over (before game_results table exists)
             $games = Game::where('phase', GamePhase::GAME_OVER)
                 ->orderByDesc('updated_at')
                 ->with('players')
                 ->paginate($perPage);
+
+            $data = $games->getCollection()->map(function ($game) {
+                return [
+                    'id' => $game->id,
+                    'code' => $game->code,
+                    'finished_at' => $game->updated_at->toISOString(),
+                    'total_turns' => $game->turn_number,
+                    'players' => $game->players
+                        ->where('is_spectator', false)
+                        ->map(function ($player) use ($game) {
+                            return [
+                                'player_name' => $player->name,
+                                'placement' => $player->id === $game->winner_id ? 1 : ($player->is_alive ? 2 : 3),
+                                'is_winner' => $player->id === $game->winner_id,
+                                'is_alive' => $player->is_alive,
+                                'coins' => $player->coins,
+                                'influences' => $player->influences ?? [],
+                                'revealed' => $player->revealed ?? [],
+                            ];
+                        })->values(),
+                ];
+            });
+
+            return response()->json([
+                'data' => $data,
+                'total' => $games->total(),
+                'per_page' => $games->perPage(),
+                'current_page' => $games->currentPage(),
+                'last_page' => $games->lastPage(),
+            ]);
         }
-
-        $data = $games->getCollection()->map(function ($game) {
-            // Prefer results table, fall back to players table
-            $playerData = $game->relationLoaded('results') && $game->results->isNotEmpty()
-                ? $game->results->map(function ($result) {
-                    return [
-                        'player_name' => $result->player_name,
-                        'placement' => $result->placement,
-                        'is_winner' => $result->is_winner,
-                        'is_alive' => $result->is_alive,
-                        'coins' => $result->coins,
-                        'influences' => $result->influences,
-                        'revealed' => $result->revealed,
-                    ];
-                })
-                : $game->players->map(function ($player) use ($game) {
-                    return [
-                        'player_name' => $player->name,
-                        'placement' => $player->id === $game->winner_id ? 1 : ($player->is_alive ? 2 : 3),
-                        'is_winner' => $player->id === $game->winner_id,
-                        'is_alive' => $player->is_alive,
-                        'coins' => $player->coins,
-                        'influences' => $player->influences ?? [],
-                        'revealed' => $player->revealed ?? [],
-                    ];
-                });
-
-            return [
-                'id' => $game->id,
-                'code' => $game->code,
-                'finished_at' => $game->updated_at->toISOString(),
-                'total_turns' => $game->turn_number,
-                'players' => $playerData,
-            ];
-        });
-
-        return response()->json([
-            'data' => $data,
-            'total' => $games->total(),
-            'per_page' => $games->perPage(),
-            'current_page' => $games->currentPage(),
-            'last_page' => $games->lastPage(),
-        ]);
     }
 
     /**

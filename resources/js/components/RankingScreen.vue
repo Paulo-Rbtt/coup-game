@@ -26,8 +26,7 @@
             <th class="pb-2 pr-2">Jogador</th>
             <th class="pb-2 pr-2 text-center">Vitórias</th>
             <th class="pb-2 pr-2 text-center">Partidas</th>
-            <th class="pb-2 pr-2 text-center">% Vitórias</th>
-            <th class="pb-2">Cartas Vitoriosas</th>
+            <th class="pb-2 text-center">% Vitórias</th>
           </tr>
         </thead>
         <tbody>
@@ -48,22 +47,11 @@
               <span class="font-bold text-green-400">{{ rank.wins }}</span>
             </td>
             <td class="py-2 pr-2 text-center text-gray-400">{{ rank.games_played }}</td>
-            <td class="py-2 pr-2 text-center">
+            <td class="py-2 text-center">
               <span class="px-2 py-0.5 rounded-full text-xs font-bold"
                     :class="rank.win_rate >= 50 ? 'bg-green-500/20 text-green-400' : 'bg-gray-600/40 text-gray-400'">
                 {{ rank.win_rate }}%
               </span>
-            </td>
-            <td class="py-2">
-              <div class="flex gap-1 flex-wrap">
-                <span v-for="(count, card) in rank.winning_cards" :key="card"
-                      class="px-1.5 py-0.5 rounded text-[10px] font-bold"
-                      :style="{ backgroundColor: getColor(card) + '22', color: getColor(card), borderColor: getColor(card) + '44' }"
-                      style="border: 1px solid;">
-                  {{ getName(card) }} ×{{ count }}
-                </span>
-                <span v-if="!Object.keys(rank.winning_cards || {}).length" class="text-gray-600 text-xs">-</span>
-              </div>
             </td>
           </tr>
         </tbody>
@@ -75,20 +63,11 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import api from '../api';
-import { CHARACTERS } from '../data/characters';
 
 const emit = defineEmits(['close']);
 
 const rankings = ref([]);
 const loading = ref(true);
-
-function getColor(character) {
-  return CHARACTERS[character]?.color || '#666';
-}
-
-function getName(character) {
-  return CHARACTERS[character]?.name || character;
-}
 
 onMounted(async () => {
   try {
