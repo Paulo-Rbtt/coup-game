@@ -392,6 +392,18 @@ class GameService
             ];
             $game->save();
 
+            // Log the action declaration for ALL actions
+            $game->appendLog([
+                'type' => 'action_declared',
+                'action' => $action->value,
+                'action_label' => $action->label(),
+                'actor_id' => $actor->id,
+                'actor_name' => $actor->name,
+                'target_id' => $target?->id,
+                'target_name' => $target?->name,
+                'character' => $action->requiredCharacter()?->value,
+            ]);
+
             // Determine next phase
             if ($action === ActionType::INCOME) {
                 // Income: no challenge, no block → resolve immediately
@@ -401,6 +413,7 @@ class GameService
 
             if ($action === ActionType::COUP) {
                 // Coup: no challenge, no block → target loses influence
+                $this->broadcastAll($game->fresh('players'));
                 $this->queueInfluenceLoss($game, $target->id, 'coup');
                 return;
             }
@@ -416,17 +429,6 @@ class GameService
             }
 
             $game->save();
-
-            $game->appendLog([
-                'type' => 'action_declared',
-                'action' => $action->value,
-                'action_label' => $action->label(),
-                'actor_id' => $actor->id,
-                'actor_name' => $actor->name,
-                'target_id' => $target?->id,
-                'target_name' => $target?->name,
-                'character' => $action->requiredCharacter()?->value,
-            ]);
 
             $this->broadcastAll($game->fresh('players'));
         });

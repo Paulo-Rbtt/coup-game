@@ -44,6 +44,8 @@ import CaptainSvg from './svg/CaptainSvg.vue';
 import AmbassadorSvg from './svg/AmbassadorSvg.vue';
 import ContessaSvg from './svg/ContessaSvg.vue';
 import CoupSvg from './svg/CoupSvg.vue';
+import IncomeSvg from './svg/IncomeSvg.vue';
+import ForeignAidSvg from './svg/ForeignAidSvg.vue';
 import ChallengeSvg from './svg/ChallengeSvg.vue';
 import VictorySvg from './svg/VictorySvg.vue';
 import ExileSvg from './svg/ExileSvg.vue';
@@ -99,6 +101,24 @@ function mapEventToAnimation(event) {
         title: `${event.actor_name} dá Golpe de Estado!`,
         subtitle: event.target_name ? `Alvo: ${event.target_name}` : null,
         duration: 3000,
+      };
+    }
+
+    if (event.action === 'income') {
+      return {
+        component: markRaw(IncomeSvg),
+        title: `${event.actor_name} pegou Renda`,
+        subtitle: '+1 moeda',
+        duration: 2000,
+      };
+    }
+
+    if (event.action === 'foreign_aid') {
+      return {
+        component: markRaw(ForeignAidSvg),
+        title: `${event.actor_name} pediu Ajuda Externa`,
+        subtitle: '+2 moedas',
+        duration: 2500,
       };
     }
 
