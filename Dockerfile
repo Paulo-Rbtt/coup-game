@@ -37,7 +37,8 @@ RUN apk add --no-cache \
     unzip \
     icu-dev \
     oniguruma-dev \
-    supervisor
+    supervisor \
+    postgresql-client
 
 # Install PHP extensions
 RUN docker-php-ext-install \

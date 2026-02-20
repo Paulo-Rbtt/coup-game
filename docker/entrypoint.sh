@@ -72,6 +72,26 @@ if [ -z "$APP_KEY" ] || [ "$APP_KEY" = "base64:" ]; then
   echo "✅  Generated key: ${NEW_KEY:0:20}..."
 fi
 
+# ── Backup database before migrations ───────────────────
+BACKUP_DIR="/var/www/html/storage/app/backups"
+mkdir -p "$BACKUP_DIR"
+BACKUP_FILE="$BACKUP_DIR/pre-deploy-$(date +%Y%m%d-%H%M%S).sql.gz"
+echo "💾  Backing up database to $BACKUP_FILE..."
+if PGPASSWORD="$DB_PASSWORD" pg_dump \
+    -h "${DB_HOST:-db}" \
+    -p "${DB_PORT:-5432}" \
+    -U "${DB_USERNAME:-coup}" \
+    -d "${DB_DATABASE:-coup}" \
+    --format=plain \
+    2>/dev/null | gzip > "$BACKUP_FILE"; then
+  echo "✅  Backup saved: $BACKUP_FILE"
+  # Keep only the 10 most recent backups
+  ls -t "$BACKUP_DIR"/pre-deploy-*.sql.gz 2>/dev/null | tail -n +11 | xargs rm -f 2>/dev/null || true
+else
+  echo "⚠️   Backup failed (database may be empty on first run — continuing)"
+  rm -f "$BACKUP_FILE" 2>/dev/null || true
+fi
+
 # ── Run migrations ───────────────────────────────────────
 echo "📦  Running migrations..."
 php artisan migrate --force
