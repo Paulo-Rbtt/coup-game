@@ -16,43 +16,48 @@ class RankingController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $rankings = GameResult::select(
-                'player_name',
-                DB::raw('COUNT(*) as games_played'),
-                DB::raw('SUM(CASE WHEN is_winner = true THEN 1 ELSE 0 END) as wins'),
-                DB::raw('ROUND(AVG(placement)::numeric, 1) as avg_placement'),
-            )
-            ->groupBy('player_name')
-            ->orderByDesc('wins')
-            ->orderBy('avg_placement')
-            ->orderByDesc('games_played')
-            ->limit(100)
-            ->get();
+        try {
+            $rankings = GameResult::select(
+                    'player_name',
+                    DB::raw('COUNT(*) as games_played'),
+                    DB::raw('SUM(CASE WHEN is_winner = true THEN 1 ELSE 0 END) as wins'),
+                    DB::raw('ROUND(AVG(placement)::numeric, 1) as avg_placement'),
+                )
+                ->groupBy('player_name')
+                ->orderByDesc('wins')
+                ->orderBy('avg_placement')
+                ->orderByDesc('games_played')
+                ->limit(100)
+                ->get();
 
-        // For each player, get their winning cards (influences from winning games)
-        $rankings = $rankings->map(function ($rank) {
-            $winningCards = GameResult::where('player_name', $rank->player_name)
-                ->where('is_winner', true)
-                ->pluck('influences')
-                ->flatten()
-                ->filter()
-                ->countBy()
-                ->sortDesc()
-                ->toArray();
+            // For each player, get their winning cards (influences from winning games)
+            $rankings = $rankings->map(function ($rank) {
+                $winningCards = GameResult::where('player_name', $rank->player_name)
+                    ->where('is_winner', true)
+                    ->pluck('influences')
+                    ->flatten()
+                    ->filter()
+                    ->countBy()
+                    ->sortDesc()
+                    ->toArray();
 
-            return [
-                'player_name' => $rank->player_name,
-                'games_played' => (int) $rank->games_played,
-                'wins' => (int) $rank->wins,
-                'win_rate' => $rank->games_played > 0
-                    ? round(($rank->wins / $rank->games_played) * 100, 1)
-                    : 0,
-                'avg_placement' => (float) $rank->avg_placement,
-                'winning_cards' => $winningCards,
-            ];
-        });
+                return [
+                    'player_name' => $rank->player_name,
+                    'games_played' => (int) $rank->games_played,
+                    'wins' => (int) $rank->wins,
+                    'win_rate' => $rank->games_played > 0
+                        ? round(($rank->wins / $rank->games_played) * 100, 1)
+                        : 0,
+                    'avg_placement' => (float) $rank->avg_placement,
+                    'winning_cards' => $winningCards,
+                ];
+            });
 
-        return response()->json($rankings);
+            return response()->json($rankings);
+        } catch (\Throwable $e) {
+            // If game_results table doesn't exist yet, return empty
+            return response()->json([]);
+        }
     }
 
     /**
@@ -62,20 +67,25 @@ class RankingController extends Controller
     {
         $perPage = min($request->query('per_page', 20), 50);
 
-        $games = Game::where('phase', GamePhase::GAME_OVER)
-            ->orderByDesc('updated_at')
-            ->with(['results' => function ($q) {
-                $q->orderBy('placement');
-            }])
-            ->paginate($perPage);
+        try {
+            $games = Game::where('phase', GamePhase::GAME_OVER)
+                ->orderByDesc('updated_at')
+                ->with(['results' => function ($q) {
+                    $q->orderBy('placement');
+                }, 'players'])
+                ->paginate($perPage);
+        } catch (\Throwable $e) {
+            // If game_results table doesn't exist, fall back to games + players
+            $games = Game::where('phase', GamePhase::GAME_OVER)
+                ->orderByDesc('updated_at')
+                ->with('players')
+                ->paginate($perPage);
+        }
 
         $data = $games->getCollection()->map(function ($game) {
-            return [
-                'id' => $game->id,
-                'code' => $game->code,
-                'finished_at' => $game->updated_at->toISOString(),
-                'total_turns' => $game->turn_number,
-                'players' => $game->results->map(function ($result) {
+            // Prefer results table, fall back to players table
+            $playerData = $game->relationLoaded('results') && $game->results->isNotEmpty()
+                ? $game->results->map(function ($result) {
                     return [
                         'player_name' => $result->player_name,
                         'placement' => $result->placement,
@@ -85,7 +95,25 @@ class RankingController extends Controller
                         'influences' => $result->influences,
                         'revealed' => $result->revealed,
                     ];
-                }),
+                })
+                : $game->players->map(function ($player) use ($game) {
+                    return [
+                        'player_name' => $player->name,
+                        'placement' => $player->id === $game->winner_id ? 1 : ($player->is_alive ? 2 : 3),
+                        'is_winner' => $player->id === $game->winner_id,
+                        'is_alive' => $player->is_alive,
+                        'coins' => $player->coins,
+                        'influences' => $player->influences ?? [],
+                        'revealed' => $player->revealed ?? [],
+                    ];
+                });
+
+            return [
+                'id' => $game->id,
+                'code' => $game->code,
+                'finished_at' => $game->updated_at->toISOString(),
+                'total_turns' => $game->turn_number,
+                'players' => $playerData,
             ];
         });
 

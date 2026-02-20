@@ -9,7 +9,7 @@
     <!-- Chat bubble (8 ball pool style) -->
     <Transition name="bubble">
       <div v-if="chatMessage && player.is_alive"
-           class="absolute -top-8 sm:-top-10 left-1/2 -translate-x-1/2 z-10 max-w-[150px] sm:max-w-[200px] px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl bg-white text-gray-900 text-[10px] sm:text-xs font-medium shadow-lg whitespace-nowrap overflow-hidden text-ellipsis pointer-events-none"
+           class="absolute -top-8 sm:-top-10 left-1/2 -translate-x-1/2 z-50 max-w-[150px] sm:max-w-[200px] px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl bg-white text-gray-900 text-[10px] sm:text-xs font-medium shadow-lg whitespace-nowrap overflow-hidden text-ellipsis pointer-events-none"
            style="filter: drop-shadow(0 2px 8px rgba(0,0,0,0.3))">
         {{ chatMessage }}
         <!-- Triangle pointer -->

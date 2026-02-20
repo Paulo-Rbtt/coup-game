@@ -56,7 +56,10 @@ const props = defineProps({
 const currentAnimation = shallowRef(null);
 const queue = ref([]);
 let dismissTimer = null;
-let processedCount = ref(0);
+
+// Track the timestamp of the last event we processed, so we detect new events
+// even when the event_log is capped at 50 entries (old entries drop off).
+const lastProcessedTimestamp = ref(null);
 
 // Character name map
 const CHARACTER_MAP = {
@@ -235,26 +238,45 @@ function enqueueAnimation(anim) {
   }
 }
 
-// Watch events array for new entries
-watch(() => props.events?.length, (newLen, oldLen) => {
-  if (!newLen || !oldLen || newLen <= oldLen) return;
+// Watch events array for new entries — use deep watch on last event's timestamp
+// because the backend caps event_log at 50 entries (old entries are dropped,
+// so array length can stay at 50 while new events are appended).
+watch(
+  () => {
+    const events = props.events;
+    if (!events || events.length === 0) return null;
+    const last = events[events.length - 1];
+    // Use timestamp + type as a unique key to detect changes
+    return last?.timestamp || null;
+  },
+  (newTimestamp, oldTimestamp) => {
+    if (!newTimestamp || newTimestamp === oldTimestamp) return;
+    if (!props.events || props.events.length === 0) return;
 
-  // Process only new events
-  const newEvents = props.events.slice(oldLen);
-  for (const event of newEvents) {
-    const anim = mapEventToAnimation(event);
-    if (anim) {
-      enqueueAnimation(anim);
+    // On first load, just mark all existing events as processed
+    if (lastProcessedTimestamp.value === null) {
+      lastProcessedTimestamp.value = newTimestamp;
+      return;
     }
-  }
-}, { flush: 'post' });
 
-// Initialize processedCount on mount to avoid animating old events
-watch(() => props.events?.length, (len) => {
-  if (len && processedCount.value === 0) {
-    processedCount.value = len;
-  }
-}, { immediate: true });
+    // Find all events newer than our last processed timestamp
+    const newEvents = props.events.filter(
+      e => e.timestamp && e.timestamp > lastProcessedTimestamp.value
+    );
+
+    if (newEvents.length === 0) return;
+
+    lastProcessedTimestamp.value = newTimestamp;
+
+    for (const event of newEvents) {
+      const anim = mapEventToAnimation(event);
+      if (anim) {
+        enqueueAnimation(anim);
+      }
+    }
+  },
+  { flush: 'post', immediate: true }
+);
 
 onUnmounted(() => {
   if (dismissTimer) clearTimeout(dismissTimer);

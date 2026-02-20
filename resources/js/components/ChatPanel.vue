@@ -14,7 +14,7 @@
   <!-- Chat panel -->
   <Transition name="chat-slide">
     <div v-if="isOpen"
-         class="fixed bottom-4 right-4 z-40 w-80 max-h-[420px] flex flex-col bg-gray-900/95 backdrop-blur-lg border border-gray-700 rounded-xl shadow-2xl overflow-hidden">
+         class="fixed bottom-4 right-4 z-40 w-96 max-h-[520px] flex flex-col bg-gray-900/95 backdrop-blur-lg border border-gray-700 rounded-xl shadow-2xl overflow-hidden">
 
       <!-- Header -->
       <div class="flex items-center justify-between px-3 py-2 bg-gray-800/80 border-b border-gray-700 shrink-0">
@@ -30,7 +30,7 @@
 
       <!-- Messages -->
       <div ref="messagesContainer"
-           class="flex-1 overflow-y-auto p-3 space-y-2 min-h-0 max-h-[300px] scrollbar-thin">
+           class="flex-1 overflow-y-auto p-3 space-y-2 min-h-0 max-h-[400px] scrollbar-thin">
         <div v-if="messages.length === 0" class="text-xs text-gray-600 italic text-center py-4">
           Nenhuma mensagem ainda. Diga algo! 🎭
         </div>
@@ -58,9 +58,8 @@
                  ref="inputRef"
                  type="text"
                  maxlength="200"
-                 :disabled="onCooldown"
-                 :placeholder="onCooldown ? `Aguarde ${cooldownRemaining}s...` : 'Digite uma mensagem...'"
-                 class="flex-1 bg-gray-800 border border-gray-600 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-500 outline-none focus:border-amber-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" />
+                 :placeholder="onCooldown ? `Aguarde ${cooldownRemaining}s para enviar...` : 'Digite uma mensagem...'"
+                 class="flex-1 bg-gray-800 border border-gray-600 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-500 outline-none focus:border-amber-500 transition-colors" />
           <button type="submit"
                   :disabled="!canSend"
                   class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 cursor-pointer"

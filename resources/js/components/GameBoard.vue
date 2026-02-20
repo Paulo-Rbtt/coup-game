@@ -64,7 +64,7 @@
       <!-- ── Opponents + Phase + Log (scrollable main area) ── -->
       <div class="flex-1 lg:order-1">
         <!-- Opponents grid (always visible on mobile now) -->
-        <div class="grid grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
+        <div class="grid grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 pt-8 sm:pt-10">
           <PlayerCard v-for="player in otherPlayers" :key="player.id"
                       :player="player"
                       :isCurrentTurn="state.game.current_player_id === player.id"
@@ -94,7 +94,7 @@
       </div>
 
       <!-- ── Desktop sidebar (only visible on lg+) ── -->
-      <div class="hidden lg:block lg:w-80 lg:order-2 space-y-3">
+      <div class="hidden lg:flex lg:flex-col lg:w-80 lg:order-2 lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto space-y-3">
         <!-- My info card (desktop) -->
         <div class="bg-gray-800/60 backdrop-blur rounded-xl p-4 border border-gray-700">
           <div class="flex items-center justify-between mb-3">
