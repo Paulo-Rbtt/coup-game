@@ -505,7 +505,9 @@ class GameService
             }
             // Assassinate → only target (Contessa)
             // Steal → only target (Ambassador/Captain)
-            return $ts['target_id'] ? [$ts['target_id']] : [];
+            return ($ts['target_id'] ?? null) && in_array($ts['target_id'], $alive, true)
+                ? [$ts['target_id']]
+                : [];
         }
 
         if ($game->phase === GamePhase::AWAITING_CHALLENGE_BLOCK) {
@@ -522,17 +524,10 @@ class GameService
     private function advanceAfterWindow(Game $game): void
     {
         $ts = $game->turn_state;
-        $action = ActionType::from($ts['action']);
 
         if ($game->phase === GamePhase::AWAITING_CHALLENGE_ACTION) {
-            // No one challenged the action
-            if ($action->canBeBlocked()) {
-                $game->phase = GamePhase::AWAITING_BLOCK;
-                $game->save();
-                $this->broadcastAll($game->fresh('players'));
-            } else {
-                $this->resolveAction($game);
-            }
+            // Combined reaction window: if nobody challenged or blocked, resolve now.
+            $this->resolveAction($game);
         } elseif ($game->phase === GamePhase::AWAITING_BLOCK) {
             // No one blocked → resolve action
             $this->resolveAction($game);
@@ -638,7 +633,10 @@ class GameService
             $this->touchActivity($game, $blocker);
             $ts = $game->turn_state;
 
-            if ($game->phase !== GamePhase::AWAITING_BLOCK) {
+            if (!in_array($game->phase, [
+                GamePhase::AWAITING_CHALLENGE_ACTION,
+                GamePhase::AWAITING_BLOCK,
+            ], true)) {
                 throw new \RuntimeException('Fase inválida para bloquear.');
             }
 
@@ -916,14 +914,8 @@ class GameService
                 $this->endTurn($game);
                 return;
             }
-            // Challenger lost → action continues
-            if ($action->canBeBlocked()) {
-                $game->phase = GamePhase::AWAITING_BLOCK;
-                $game->save();
-                $this->broadcastAll($game->fresh('players'));
-            } else {
-                $this->resolveAction($game);
-            }
+            // Challenger lost → action continues immediately.
+            $this->resolveAction($game);
             return;
         }
 
