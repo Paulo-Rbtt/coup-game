@@ -22,7 +22,7 @@ enum GamePhase: string
         return match ($this) {
             self::LOBBY => 'Aguardando jogadores',
             self::ACTION_SELECTION => 'Escolher ação',
-            self::AWAITING_CHALLENGE_ACTION => 'Janela de contestação',
+            self::AWAITING_CHALLENGE_ACTION => 'Janela de reação',
             self::RESOLVING_CHALLENGE_ACTION => 'Resolvendo contestação',
             self::AWAITING_BLOCK => 'Janela de bloqueio',
             self::AWAITING_CHALLENGE_BLOCK => 'Contestar bloqueio?',
